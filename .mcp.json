@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "codex-1m": {
+      "title": "Codex 1M Context",
+      "description": "Enable, disable, or inspect Codex's 1M context configuration.",
+      "cwd": ".",
+      "command": "node",
+      "args": ["./mcp/server.cjs"]
+    }
+  }
+}

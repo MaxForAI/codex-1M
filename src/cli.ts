@@ -1,15 +1,58 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import { spawnSync } from 'child_process';
+import * as fs from 'fs';
 import { ConfigManager } from './config-manager';
 import { ConfigModifier } from './config-modifier';
 
 const program = new Command();
+const GITHUB_MARKETPLACE = 'MaxForAI/codex-1M';
+const MARKETPLACE_NAME = 'codex-1m';
+
+function resolveCodexBinary(): string {
+  if (process.env.CODEX_BIN) {
+    return process.env.CODEX_BIN;
+  }
+
+  const pathProbe = spawnSync(
+    process.platform === 'win32' ? 'where' : 'which',
+    ['codex'],
+    { encoding: 'utf8' }
+  );
+  const fromPath = pathProbe.stdout?.trim().split(/\r?\n/)[0];
+  if (pathProbe.status === 0 && fromPath) {
+    return fromPath;
+  }
+
+  const macAppBinary = '/Applications/ChatGPT.app/Contents/Resources/codex';
+  if (process.platform === 'darwin' && fs.existsSync(macAppBinary)) {
+    return macAppBinary;
+  }
+
+  throw new Error(
+    'Codex CLI was not found. Install Codex or set CODEX_BIN to the codex executable.'
+  );
+}
+
+function runCodex(codexBinary: string, args: string[]): void {
+  const result = spawnSync(codexBinary, args, {
+    encoding: 'utf8',
+    env: process.env,
+  });
+
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`codex ${args.join(' ')} exited with status ${result.status}`);
+  }
+}
 
 program
   .name('codex-1m')
   .description('One command to unlock Codex\'s 1M-token context')
-  .version('1.0.0');
+  .version('1.1.0');
 
 program
   .command('on')
@@ -81,40 +124,24 @@ program
 
 program
   .command('install')
-  .description('Install codex-1m (register MCP server and create prompt)')
+  .description('Install the codex-1m plugin from its GitHub marketplace')
   .action(async () => {
     try {
-      const configManager = new ConfigManager();
-      const modifier = new ConfigModifier(configManager);
+      const codexBinary = resolveCodexBinary();
+      const source = process.env.CODEX_1M_MARKETPLACE_SOURCE || GITHUB_MARKETPLACE;
 
-      // Register MCP server
-      modifier.registerMCPServer();
-      console.log('MCP server registered.');
+      console.log(`Adding Codex plugin marketplace: ${source}`);
+      runCodex(codexBinary, ['plugin', 'marketplace', 'add', source, '--json']);
 
-      // Create prompt file
-      const promptDir = require('path').join(require('os').homedir(), '.codex', 'prompts');
-      const fs = require('fs');
+      console.log(`Installing ${MARKETPLACE_NAME}@${MARKETPLACE_NAME}`);
+      runCodex(codexBinary, [
+        'plugin',
+        'add',
+        `${MARKETPLACE_NAME}@${MARKETPLACE_NAME}`,
+        '--json',
+      ]);
 
-      if (!fs.existsSync(promptDir)) {
-        fs.mkdirSync(promptDir, { recursive: true });
-      }
-
-      const promptPath = require('path').join(promptDir, '1m.md');
-      const promptContent = `# 1M Context Toggle
-
-You can enable or disable the 1M token context window using the MCP tools:
-
-- Ask me to "enable 1M context" to toggle it on
-- Ask me to "disable 1M context" to toggle it off
-- Ask me to "check context status" to see current settings
-
-Note: Configuration changes require starting a new Codex session to take effect.
-`;
-
-      fs.writeFileSync(promptPath, promptContent, 'utf-8');
-      console.log(`Prompt file created at: ${promptPath}`);
-
-      console.log('\nInstallation complete! You can now use /1m in Codex conversations.');
+      console.log('\nInstalled. Start a new Codex conversation, then say “开启 1M 上下文”.');
     } catch (error) {
       console.error('Error during installation:', error);
       process.exit(1);

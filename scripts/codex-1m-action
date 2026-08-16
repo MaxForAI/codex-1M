@@ -1,0 +1,29 @@
+#!/bin/sh
+
+set -eu
+
+ACTION="${1:-status}"
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+REPO_DIR=$(dirname -- "$SCRIPT_DIR")
+CLI="$REPO_DIR/dist/cli.js"
+
+if [ ! -f "$CLI" ]; then
+  printf '%s\n' "codex-1m is not built. Run: npm run build --prefix $REPO_DIR" >&2
+  exit 66
+fi
+
+case "$ACTION" in
+  on)
+    exec /usr/bin/env node "$CLI" on --global
+    ;;
+  off)
+    exec /usr/bin/env node "$CLI" off --global
+    ;;
+  status)
+    exec /usr/bin/env node "$CLI" status
+    ;;
+  *)
+    printf '%s\n' 'Usage: codex-1m-action {on|off|status}' >&2
+    exit 64
+    ;;
+esac

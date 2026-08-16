@@ -1,0 +1,29 @@
+{
+  "name": "codex-1m",
+  "version": "1.1.0",
+  "description": "Toggle a 1,000,000-token Codex context window from a conversation.",
+  "author": {
+    "name": "MaxForAI",
+    "url": "https://github.com/MaxForAI"
+  },
+  "homepage": "https://github.com/MaxForAI/codex-1M#readme",
+  "repository": "https://github.com/MaxForAI/codex-1M",
+  "license": "MIT",
+  "keywords": ["codex", "context-window", "mcp", "1m"],
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Codex 1M Context",
+    "shortDescription": "Toggle Codex's 1M context from chat",
+    "longDescription": "Adds MCP tools that enable, disable, and inspect a 1,000,000-token Codex context configuration.",
+    "developerName": "MaxForAI",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/MaxForAI/codex-1M",
+    "defaultPrompt": [
+      "开启 1M 上下文",
+      "关闭 1M 上下文",
+      "检查当前上下文配置"
+    ],
+    "brandColor": "#10A37F"
+  }
+}

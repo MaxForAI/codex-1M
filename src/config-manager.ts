@@ -17,7 +17,8 @@ export class ConfigManager {
   private backupPath: string;
 
   constructor(configPath?: string) {
-    this.configPath = configPath || path.join(os.homedir(), '.codex', 'config.toml');
+    const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
+    this.configPath = configPath || path.join(codexHome, 'config.toml');
     this.backupPath = ''; // Will be set when backup is created
     this.ensureConfigExists();
   }
