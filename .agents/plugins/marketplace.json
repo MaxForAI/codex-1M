@@ -1,7 +1,7 @@
 {
   "name": "codex-1m",
   "interface": {
-    "displayName": "Codex 1M"
+    "displayName": "Codex 1M — 1M on/off/state"
   },
   "plugins": [
     {

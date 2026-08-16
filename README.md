@@ -10,17 +10,23 @@ npx --yes github:MaxForAI/codex-1M install
 
 ## Usage (in a Codex conversation)
 
-Start a **new** Codex conversation after installation, then say:
+Start a **new** Codex conversation after installation, then enter one of these
+short commands:
 
 ```text
-开启 1M 上下文
-关闭 1M 上下文
-检查当前上下文配置
+1M on
+1M off
+1M state
 ```
 
-The plugin exposes `toggle_1m_context` and `context_status` through MCP. After
-enabling or disabling 1M context, start one more new conversation for the new
-context configuration to take effect.
+Commands are case-insensitive (`1m on`, `1M ON`, and equivalent casing work):
+
+- `1M on` calls `toggle_1m_context` with `enable=true`.
+- `1M off` calls `toggle_1m_context` with `enable=false`.
+- `1M state` calls `context_status`.
+
+After `1M on` or `1M off`, start one more new conversation for the new context
+configuration to take effect.
 
 ## What it configures
 
@@ -118,7 +124,8 @@ The original CLI remains available for direct, non-plugin use:
 ```bash
 npx github:MaxForAI/codex-1M on             # create/update profile 1m
 npx github:MaxForAI/codex-1M off            # remove profile 1m
-npx github:MaxForAI/codex-1M status         # show global status
+npx github:MaxForAI/codex-1M state          # show global state
+npx github:MaxForAI/codex-1M status         # legacy alias; still supported
 npx github:MaxForAI/codex-1M on --global    # enable globally
 npx github:MaxForAI/codex-1M off --global   # disable globally
 ```

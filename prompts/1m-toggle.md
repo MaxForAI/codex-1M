@@ -1,15 +1,16 @@
 ---
-description: Show status or enable/disable the Codex 1M context profile
-argument-hint: ACTION=status|on|off [GLOBAL=true|false]
+description: Run 1M on, 1M off, or 1M state
+argument-hint: ACTION=state|status|on|off [GLOBAL=true|false]
 ---
 
 # 1M Context Toggle
 
 You can enable or disable the 1M token context window in Codex.
 
-Interpret `ACTION` as `status` when it is omitted. Use the installed codex-1m MCP tools:
+Interpret `ACTION` case-insensitively and use `state` when it is omitted. Use
+the installed codex-1m MCP tools:
 
-- `ACTION=status`: call `context_status`.
+- `ACTION=state` or the legacy `ACTION=status`: call `context_status`.
 - `ACTION=on`: call `toggle_1m_context` with `enable=true`.
 - `ACTION=off`: call `toggle_1m_context` with `enable=false`.
 - Pass `global=true` only when `GLOBAL=true`; otherwise use the safer `1m` profile.
@@ -22,12 +23,13 @@ When enabled, sets Codex to use `gpt-5.6-sol` with:
 - Auto-compact limit: 900,000 tokens
 
 **Important Notes:**
-⚠️ Configuration changes require starting a new Codex session to take effect
-⚠️ API pricing changes for inputs exceeding 272K tokens
-⚠️ `gpt-5.6-sol` model access depends on your account permissions
+- Start a new Codex conversation after a configuration change.
+- Inputs above 272K tokens may cost more.
+- `gpt-5.6-sol` access depends on account and workspace permissions.
 
 **Alternative Methods:**
-- CLI: `npx codex-1m on/off/status`
+- Chat: `1M on` / `1M off` / `1M state` (case-insensitive)
+- CLI: `npx codex-1m on/off/state` (`status` remains supported)
 - Profile: `codex --profile 1m`
 - MCP tools: `toggle_1m_context` / `context_status`
 

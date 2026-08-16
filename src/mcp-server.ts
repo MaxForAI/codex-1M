@@ -8,12 +8,13 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { ConfigManager } from './config-manager';
 import { ConfigModifier } from './config-modifier';
+import { MCP_TOOLS } from './mcp-tools';
 
 // Create server instance
 const server = new Server(
   {
     name: 'codex-1m',
-    version: '1.0.0',
+    version: '1.2.0',
   },
   {
     capabilities: {
@@ -25,35 +26,7 @@ const server = new Server(
 // List available tools
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
-    tools: [
-      {
-        name: 'toggle_1m_context',
-        description: 'Enable or disable 1M token context window in Codex configuration',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            enable: {
-              type: 'boolean',
-              description: 'True to enable 1M context, false to disable'
-            },
-            global: {
-              type: 'boolean',
-              description: 'True to modify top-level config, false to use profile (default: false)'
-            }
-          },
-          required: ['enable']
-        }
-      },
-      {
-        name: 'context_status',
-        description: 'Check current Codex context configuration',
-        inputSchema: {
-          type: 'object',
-          properties: {},
-          required: []
-        }
-      }
-    ],
+    tools: MCP_TOOLS,
   };
 });
 

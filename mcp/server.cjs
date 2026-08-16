@@ -17613,11 +17613,42 @@ var ConfigModifier = class {
   }
 };
 
+// src/mcp-tools.ts
+var MCP_TOOLS = [
+  {
+    name: "toggle_1m_context",
+    description: 'Use this when the user enters "1M on" or "1M off" (case-insensitive). Call with enable=true for 1M on and enable=false for 1M off.',
+    inputSchema: {
+      type: "object",
+      properties: {
+        enable: {
+          type: "boolean",
+          description: "True for 1M on; false for 1M off"
+        },
+        global: {
+          type: "boolean",
+          description: "True to modify top-level config; false to use the 1m profile (default: false)"
+        }
+      },
+      required: ["enable"]
+    }
+  },
+  {
+    name: "context_status",
+    description: 'Use this when the user enters "1M state" (case-insensitive). Returns the current Codex context configuration without modifying it.',
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  }
+];
+
 // src/mcp-server.ts
 var server = new Server(
   {
     name: "codex-1m",
-    version: "1.0.0"
+    version: "1.2.0"
   },
   {
     capabilities: {
@@ -17627,35 +17658,7 @@ var server = new Server(
 );
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
-    tools: [
-      {
-        name: "toggle_1m_context",
-        description: "Enable or disable 1M token context window in Codex configuration",
-        inputSchema: {
-          type: "object",
-          properties: {
-            enable: {
-              type: "boolean",
-              description: "True to enable 1M context, false to disable"
-            },
-            global: {
-              type: "boolean",
-              description: "True to modify top-level config, false to use profile (default: false)"
-            }
-          },
-          required: ["enable"]
-        }
-      },
-      {
-        name: "context_status",
-        description: "Check current Codex context configuration",
-        inputSchema: {
-          type: "object",
-          properties: {},
-          required: []
-        }
-      }
-    ]
+    tools: MCP_TOOLS
   };
 });
 server.setRequestHandler(CallToolRequestSchema, async (request) => {

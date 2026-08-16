@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import { ConfigManager } from './config-manager';
 import { ConfigModifier } from './config-modifier';
 
-const program = new Command();
+export const program = new Command();
 const GITHUB_MARKETPLACE = 'MaxForAI/codex-1M';
 const MARKETPLACE_NAME = 'codex-1m';
 
@@ -51,8 +51,8 @@ function runCodex(codexBinary: string, args: string[]): void {
 
 program
   .name('codex-1m')
-  .description('One command to unlock Codex\'s 1M-token context')
-  .version('1.1.0');
+  .description('Control Codex\'s 1M-token context with on, off, or state')
+  .version('1.2.0');
 
 program
   .command('on')
@@ -98,7 +98,8 @@ program
 
 program
   .command('status')
-  .description('Show current 1M context status')
+  .alias('state')
+  .description('Show current 1M context state (status remains supported)')
   .action(async () => {
     try {
       const configManager = new ConfigManager();
@@ -106,8 +107,8 @@ program
 
       const status = modifier.getStatus();
 
-      console.log('Codex 1M Context Status:');
-      console.log('========================');
+      console.log('Codex 1M Context State:');
+      console.log('=======================');
       console.log(`Model: ${status.model}`);
       console.log(`Context Window: ${status.model_context_window.toLocaleString()} tokens`);
       console.log(`Auto Compact Limit: ${status.model_auto_compact_token_limit.toLocaleString()} tokens`);
@@ -117,7 +118,7 @@ program
         console.log('\nTip: Use "codex --profile 1m" if you created a 1M profile');
       }
     } catch (error) {
-      console.error('Error getting status:', error);
+      console.error('Error getting state:', error);
       process.exit(1);
     }
   });
@@ -141,16 +142,18 @@ program
         '--json',
       ]);
 
-      console.log('\nInstalled. Start a new Codex conversation, then say “开启 1M 上下文”.');
+      console.log('\nInstalled. Start a new Codex conversation, then use: 1M on, 1M off, or 1M state.');
     } catch (error) {
       console.error('Error during installation:', error);
       process.exit(1);
     }
   });
 
-// Default to 'on' if no command specified
-if (process.argv.length === 2 || (process.argv.length === 3 && process.argv[2] === 'on')) {
-  program.parse(['node', 'codex-1m', 'on']);
-} else {
-  program.parse();
+if (require.main === module) {
+  // Default to 'on' if no command specified
+  if (process.argv.length === 2 || (process.argv.length === 3 && process.argv[2] === 'on')) {
+    program.parse(['node', 'codex-1m', 'on']);
+  } else {
+    program.parse();
+  }
 }

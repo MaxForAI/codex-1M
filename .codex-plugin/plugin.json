@@ -1,7 +1,7 @@
 {
   "name": "codex-1m",
-  "version": "1.1.0",
-  "description": "Toggle a 1,000,000-token Codex context window from a conversation.",
+  "version": "1.2.0",
+  "description": "Use 1M on, 1M off, or 1M state to control a 1,000,000-token Codex context window.",
   "author": {
     "name": "MaxForAI",
     "url": "https://github.com/MaxForAI"
@@ -13,16 +13,16 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Codex 1M Context",
-    "shortDescription": "Toggle Codex's 1M context from chat",
-    "longDescription": "Adds MCP tools that enable, disable, and inspect a 1,000,000-token Codex context configuration.",
+    "shortDescription": "Use 1M on/off/state to control 1M context",
+    "longDescription": "Adds MCP tools that route the case-insensitive commands 1M on, 1M off, and 1M state to enable, disable, and inspect a 1,000,000-token Codex context configuration.",
     "developerName": "MaxForAI",
     "category": "Developer Tools",
     "capabilities": ["Read", "Write"],
     "websiteURL": "https://github.com/MaxForAI/codex-1M",
     "defaultPrompt": [
-      "开启 1M 上下文",
-      "关闭 1M 上下文",
-      "检查当前上下文配置"
+      "1M on",
+      "1M off",
+      "1M state"
     ],
     "brandColor": "#10A37F"
   }
