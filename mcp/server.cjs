@@ -17617,7 +17617,7 @@ var ConfigModifier = class {
 var MCP_TOOLS = [
   {
     name: "toggle_1m_context",
-    description: 'Use this when the user enters "1M on" or "1M off" (case-insensitive). Call with enable=true for 1M on and enable=false for 1M off.',
+    description: "Toggle Codex 1M-token context. Call with enable=true when the user types '1M on', enable=false when the user types '1M off'. Matching is case-insensitive.",
     inputSchema: {
       type: "object",
       properties: {
@@ -17635,7 +17635,7 @@ var MCP_TOOLS = [
   },
   {
     name: "context_status",
-    description: 'Use this when the user enters "1M state" (case-insensitive). Returns the current Codex context configuration without modifying it.',
+    description: "Report current Codex context configuration. Call when the user types '1M state'. Matching is case-insensitive.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -17645,6 +17645,14 @@ var MCP_TOOLS = [
 ];
 
 // src/mcp-server.ts
+var TOOL_DESCRIPTIONS = {
+  toggle_1m_context: "Toggle Codex 1M-token context. Call with enable=true when the user types '1M on', enable=false when the user types '1M off'. Matching is case-insensitive.",
+  context_status: "Report current Codex context configuration. Call when the user types '1M state'. Matching is case-insensitive."
+};
+var ADVERTISED_MCP_TOOLS = MCP_TOOLS.map((tool) => ({
+  ...tool,
+  description: TOOL_DESCRIPTIONS[tool.name] ?? tool.description
+}));
 var server = new Server(
   {
     name: "codex-1m",
@@ -17658,7 +17666,7 @@ var server = new Server(
 );
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
-    tools: MCP_TOOLS
+    tools: ADVERTISED_MCP_TOOLS
   };
 });
 server.setRequestHandler(CallToolRequestSchema, async (request) => {

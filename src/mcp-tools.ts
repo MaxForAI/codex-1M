@@ -1,7 +1,7 @@
 export const MCP_TOOLS = [
   {
     name: 'toggle_1m_context',
-    description: 'Use this when the user enters "1M on" or "1M off" (case-insensitive). Call with enable=true for 1M on and enable=false for 1M off.',
+    description: "Toggle Codex 1M-token context. Call with enable=true when the user types '1M on', enable=false when the user types '1M off'. Matching is case-insensitive.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -19,7 +19,7 @@ export const MCP_TOOLS = [
   },
   {
     name: 'context_status',
-    description: 'Use this when the user enters "1M state" (case-insensitive). Returns the current Codex context configuration without modifying it.',
+    description: "Report current Codex context configuration. Call when the user types '1M state'. Matching is case-insensitive.",
     inputSchema: {
       type: 'object',
       properties: {},

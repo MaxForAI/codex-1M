@@ -10,6 +10,18 @@ import { ConfigManager } from './config-manager';
 import { ConfigModifier } from './config-modifier';
 import { MCP_TOOLS } from './mcp-tools';
 
+const TOOL_DESCRIPTIONS: Record<string, string> = {
+  toggle_1m_context:
+    "Toggle Codex 1M-token context. Call with enable=true when the user types '1M on', enable=false when the user types '1M off'. Matching is case-insensitive.",
+  context_status:
+    "Report current Codex context configuration. Call when the user types '1M state'. Matching is case-insensitive.",
+};
+
+const ADVERTISED_MCP_TOOLS = MCP_TOOLS.map((tool) => ({
+  ...tool,
+  description: TOOL_DESCRIPTIONS[tool.name] ?? tool.description,
+}));
+
 // Create server instance
 const server = new Server(
   {
@@ -26,7 +38,7 @@ const server = new Server(
 // List available tools
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
-    tools: MCP_TOOLS,
+    tools: ADVERTISED_MCP_TOOLS,
   };
 });
 
