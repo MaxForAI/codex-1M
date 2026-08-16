@@ -8,6 +8,35 @@ Install the Codex plugin from GitHub with one command:
 npx --yes github:MaxForAI/codex-1M install
 ```
 
+Install and uninstall are both one-command operations, so codex-1M can be
+added or removed at any time.
+
+## Uninstall (one command)
+
+```bash
+npx codex-1m uninstall
+```
+
+The command creates `~/.codex/config.toml.bak.<timestamp>` before changing a
+managed installation, then:
+
+- removes the top-level `model`, `model_context_window`, and
+  `model_auto_compact_token_limit` only when all three match the exact 1M
+  configuration written by codex-1M;
+- removes `[profiles.1m]` and `[mcp_servers.codex-1m]` with a TOML parser while
+  preserving every unrelated setting, profile, and MCP server;
+- removes only the recognized codex-1M prompt files (`1m.md` and
+  `1m-toggle.md`) from `~/.codex/prompts/`;
+- runs `codex plugin remove codex-1m@codex-1m --json`, then
+  `codex plugin marketplace remove codex-1m --json`, after checking that each
+  entry exists.
+
+Uninstall is idempotent: running it again reports that the managed entries are
+already absent. If the installed Codex version does not expose the plugin
+remove commands, configuration and prompt cleanup still completes and the
+summary tells you to enter `/plugins`, open codex-1m, and choose **Uninstall
+plugin**. Reinstall at any time with the Install command above.
+
 ## Usage (in a Codex conversation)
 
 Start a **new** Codex conversation after installation, then enter one of these
@@ -117,6 +146,16 @@ codex plugin add codex-1m@codex-1m
 Start a new Codex CLI session or desktop conversation after installing so the
 bundled MCP tools are loaded.
 
+The corresponding verified removal commands are:
+
+```bash
+codex plugin remove codex-1m@codex-1m
+codex plugin marketplace remove codex-1m
+```
+
+`npx codex-1m uninstall` checks the installed/plugin marketplace lists before
+calling them, so an already-uninstalled state is not treated as an error.
+
 ## Existing CLI
 
 The original CLI remains available for direct, non-plugin use:
@@ -128,6 +167,7 @@ npx github:MaxForAI/codex-1M state          # show global state
 npx github:MaxForAI/codex-1M status         # legacy alias; still supported
 npx github:MaxForAI/codex-1M on --global    # enable globally
 npx github:MaxForAI/codex-1M off --global   # disable globally
+npx codex-1m uninstall                      # remove config, prompts, and plugin
 ```
 
 The profile mode is opt-in: launch Codex with `codex --profile 1m`. The plugin

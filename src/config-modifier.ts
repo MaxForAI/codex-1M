@@ -7,6 +7,11 @@ export interface ConfigStatus {
   enabled: boolean;
 }
 
+export interface UninstallConfigResult {
+  changed: boolean;
+  removed: string[];
+}
+
 const MODEL_1M = 'gpt-5.6-sol';
 const CONTEXT_WINDOW_1M = 1000000;
 const AUTO_COMPACT_LIMIT = 900000;
@@ -96,5 +101,65 @@ export class ConfigModifier {
 
     this.configManager.writeConfig(config);
     return 'MCP server registered successfully.';
+  }
+
+  hasUninstallArtifacts(config: CodexConfig = this.configManager.readConfig()): boolean {
+    const hasManagedGlobalConfig =
+      config.model === MODEL_1M &&
+      config.model_context_window === CONTEXT_WINDOW_1M &&
+      config.model_auto_compact_token_limit === AUTO_COMPACT_LIMIT;
+
+    return Boolean(
+      hasManagedGlobalConfig ||
+      config.profiles?.['1m'] ||
+      config.mcp_servers?.['codex-1m'] ||
+      config.plugins?.['codex-1m@codex-1m'] ||
+      config.marketplaces?.['codex-1m']
+    );
+  }
+
+  uninstallConfiguration(): UninstallConfigResult {
+    const config = this.configManager.readConfig();
+    const removed: string[] = [];
+
+    const hasManagedGlobalConfig =
+      config.model === MODEL_1M &&
+      config.model_context_window === CONTEXT_WINDOW_1M &&
+      config.model_auto_compact_token_limit === AUTO_COMPACT_LIMIT;
+
+    if (hasManagedGlobalConfig) {
+      delete config.model;
+      delete config.model_context_window;
+      delete config.model_auto_compact_token_limit;
+      removed.push(
+        'model',
+        'model_context_window',
+        'model_auto_compact_token_limit'
+      );
+    }
+
+    if (config.profiles?.['1m']) {
+      delete config.profiles['1m'];
+      removed.push('profiles.1m');
+      if (Object.keys(config.profiles).length === 0) {
+        delete config.profiles;
+      }
+    }
+
+    if (config.mcp_servers?.['codex-1m']) {
+      delete config.mcp_servers['codex-1m'];
+      removed.push('mcp_servers.codex-1m');
+      if (Object.keys(config.mcp_servers).length === 0) {
+        delete config.mcp_servers;
+      }
+    }
+
+    if (removed.length > 0) {
+      // The uninstall coordinator creates one backup before any cleanup. Avoid
+      // replacing it with a backup of an already partially cleaned config.
+      this.configManager.writeConfig(config, false);
+    }
+
+    return { changed: removed.length > 0, removed };
   }
 }

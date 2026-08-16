@@ -3,8 +3,10 @@
 import { Command } from 'commander';
 import { spawnSync } from 'child_process';
 import * as fs from 'fs';
+import * as path from 'path';
 import { ConfigManager } from './config-manager';
 import { ConfigModifier } from './config-modifier';
+import { uninstallLocalArtifacts } from './uninstaller';
 
 export const program = new Command();
 const GITHUB_MARKETPLACE = 'MaxForAI/codex-1M';
@@ -49,10 +51,131 @@ function runCodex(codexBinary: string, args: string[]): void {
   }
 }
 
+function runCodexJson(codexBinary: string, args: string[]): any {
+  const result = spawnSync(codexBinary, args, {
+    encoding: 'utf8',
+    env: process.env,
+  });
+
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    const detail = result.stderr?.trim() || result.stdout?.trim();
+    throw new Error(
+      `codex ${args.join(' ')} exited with status ${result.status}${detail ? `: ${detail}` : ''}`
+    );
+  }
+  return JSON.parse(result.stdout || '{}');
+}
+
+interface PluginRemovalResult {
+  plugin: 'removed' | 'not installed' | 'manual action required';
+  marketplace: 'removed' | 'not configured' | 'manual action required';
+  detail?: string;
+}
+
+function isManagedMarketplace(marketplace: any, pluginWasInstalled: boolean): boolean {
+  if (marketplace?.name !== MARKETPLACE_NAME) return false;
+  if (pluginWasInstalled) return true;
+
+  const sourceDescription = JSON.stringify(marketplace.marketplaceSource || {}).toLowerCase();
+  if (sourceDescription.includes('maxforai/codex-1m')) return true;
+
+  if (typeof marketplace.root === 'string') {
+    const manifestPath = path.join(marketplace.root, '.codex-plugin', 'plugin.json');
+    try {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      return (
+        manifest.name === MARKETPLACE_NAME &&
+        typeof manifest.repository === 'string' &&
+        manifest.repository.toLowerCase().includes('maxforai/codex-1m')
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+function removeCodexPlugin(): PluginRemovalResult {
+  let codexBinary: string;
+  try {
+    codexBinary = resolveCodexBinary();
+  } catch (error) {
+    return {
+      plugin: 'manual action required',
+      marketplace: 'manual action required',
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  try {
+    const pluginList = runCodexJson(codexBinary, ['plugin', 'list', '--json']);
+    const installed = Array.isArray(pluginList.installed)
+      ? pluginList.installed.some(
+          (plugin: any) => plugin.pluginId === `${MARKETPLACE_NAME}@${MARKETPLACE_NAME}`
+        )
+      : false;
+
+    let plugin: PluginRemovalResult['plugin'] = 'not installed';
+    if (installed) {
+      runCodexJson(codexBinary, [
+        'plugin',
+        'remove',
+        `${MARKETPLACE_NAME}@${MARKETPLACE_NAME}`,
+        '--json',
+      ]);
+      plugin = 'removed';
+    }
+
+    const marketplaceList = runCodexJson(codexBinary, [
+      'plugin',
+      'marketplace',
+      'list',
+      '--json',
+    ]);
+    const namedMarketplace = Array.isArray(marketplaceList.marketplaces)
+      ? marketplaceList.marketplaces.find(
+          (marketplace: any) => marketplace.name === MARKETPLACE_NAME
+        )
+      : undefined;
+    const configured = isManagedMarketplace(namedMarketplace, installed);
+
+    let marketplace: PluginRemovalResult['marketplace'] = 'not configured';
+    if (configured) {
+      runCodexJson(codexBinary, [
+        'plugin',
+        'marketplace',
+        'remove',
+        MARKETPLACE_NAME,
+        '--json',
+      ]);
+      marketplace = 'removed';
+    }
+
+    if (namedMarketplace && !configured) {
+      return {
+        plugin,
+        marketplace: 'manual action required',
+        detail:
+          'A marketplace named codex-1m remains because its source could not be verified as MaxForAI/codex-1M.',
+      };
+    }
+
+    return { plugin, marketplace };
+  } catch (error) {
+    return {
+      plugin: 'manual action required',
+      marketplace: 'manual action required',
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 program
   .name('codex-1m')
   .description('Control Codex\'s 1M-token context with on, off, or state')
-  .version('1.2.0');
+  .version('1.3.0');
 
 program
   .command('on')
@@ -145,6 +268,52 @@ program
       console.log('\nInstalled. Start a new Codex conversation, then use: 1M on, 1M off, or 1M state.');
     } catch (error) {
       console.error('Error during installation:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('uninstall')
+  .description('Safely remove codex-1m configuration, prompts, plugin, and marketplace')
+  .action(async () => {
+    try {
+      const local = uninstallLocalArtifacts();
+      const plugin = removeCodexPlugin();
+
+      console.log('codex-1m uninstall complete');
+      console.log('===========================');
+      console.log(
+        `Configuration: ${
+          local.config.changed
+            ? `removed ${local.config.removed.join(', ')}`
+            : 'no managed settings found'
+        }`
+      );
+      console.log(`Backup: ${local.backupPath || 'not needed (config was unchanged)'}`);
+      console.log(
+        `Prompts: ${
+          local.removedPrompts.length > 0
+            ? `removed ${local.removedPrompts.join(', ')}`
+            : 'no managed prompt files found'
+        }`
+      );
+      if (local.preservedPrompts.length > 0) {
+        console.log(
+          `Prompts preserved because their content is not recognized as codex-1m: ${local.preservedPrompts.join(', ')}`
+        );
+      }
+      console.log(`Plugin ${MARKETPLACE_NAME}@${MARKETPLACE_NAME}: ${plugin.plugin}`);
+      console.log(`Marketplace ${MARKETPLACE_NAME}: ${plugin.marketplace}`);
+      if (plugin.detail) {
+        console.log(`Plugin detail: ${plugin.detail}`);
+        console.log(
+          'Remaining action: open Codex, enter /plugins, open codex-1m, and choose Uninstall plugin.'
+        );
+      }
+      console.log('Unrelated Codex configuration and prompt files were preserved.');
+      console.log('You can reinstall at any time with: npx --yes github:MaxForAI/codex-1M install');
+    } catch (error) {
+      console.error('Error during uninstall:', error);
       process.exit(1);
     }
   });

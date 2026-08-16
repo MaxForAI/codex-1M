@@ -17508,6 +17508,7 @@ var ConfigManager = class {
       this.setBackupPath();
       fs.copyFileSync(this.configPath, this.backupPath);
     }
+    return this.backupPath;
   }
   readConfig() {
     this.ensureConfigExists();
@@ -17521,8 +17522,10 @@ var ConfigManager = class {
       throw new Error(`Failed to parse config file: ${error2}`);
     }
   }
-  writeConfig(config2) {
-    this.createBackup();
+  writeConfig(config2, createBackup = true) {
+    if (createBackup) {
+      this.createBackup();
+    }
     const tomlContent = TOML.stringify(config2);
     fs.writeFileSync(this.configPath, tomlContent, "utf-8");
   }
@@ -17610,6 +17613,45 @@ var ConfigModifier = class {
     };
     this.configManager.writeConfig(config2);
     return "MCP server registered successfully.";
+  }
+  hasUninstallArtifacts(config2 = this.configManager.readConfig()) {
+    const hasManagedGlobalConfig = config2.model === MODEL_1M && config2.model_context_window === CONTEXT_WINDOW_1M && config2.model_auto_compact_token_limit === AUTO_COMPACT_LIMIT;
+    return Boolean(
+      hasManagedGlobalConfig || config2.profiles?.["1m"] || config2.mcp_servers?.["codex-1m"] || config2.plugins?.["codex-1m@codex-1m"] || config2.marketplaces?.["codex-1m"]
+    );
+  }
+  uninstallConfiguration() {
+    const config2 = this.configManager.readConfig();
+    const removed = [];
+    const hasManagedGlobalConfig = config2.model === MODEL_1M && config2.model_context_window === CONTEXT_WINDOW_1M && config2.model_auto_compact_token_limit === AUTO_COMPACT_LIMIT;
+    if (hasManagedGlobalConfig) {
+      delete config2.model;
+      delete config2.model_context_window;
+      delete config2.model_auto_compact_token_limit;
+      removed.push(
+        "model",
+        "model_context_window",
+        "model_auto_compact_token_limit"
+      );
+    }
+    if (config2.profiles?.["1m"]) {
+      delete config2.profiles["1m"];
+      removed.push("profiles.1m");
+      if (Object.keys(config2.profiles).length === 0) {
+        delete config2.profiles;
+      }
+    }
+    if (config2.mcp_servers?.["codex-1m"]) {
+      delete config2.mcp_servers["codex-1m"];
+      removed.push("mcp_servers.codex-1m");
+      if (Object.keys(config2.mcp_servers).length === 0) {
+        delete config2.mcp_servers;
+      }
+    }
+    if (removed.length > 0) {
+      this.configManager.writeConfig(config2, false);
+    }
+    return { changed: removed.length > 0, removed };
   }
 };
 

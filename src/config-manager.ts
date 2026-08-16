@@ -37,11 +37,12 @@ export class ConfigManager {
     }
   }
 
-  private createBackup(): void {
+  createBackup(): string {
     if (fs.existsSync(this.configPath)) {
       this.setBackupPath();
       fs.copyFileSync(this.configPath, this.backupPath);
     }
+    return this.backupPath;
   }
 
   readConfig(): CodexConfig {
@@ -57,8 +58,10 @@ export class ConfigManager {
     }
   }
 
-  writeConfig(config: CodexConfig): void {
-    this.createBackup();
+  writeConfig(config: CodexConfig, createBackup: boolean = true): void {
+    if (createBackup) {
+      this.createBackup();
+    }
     const tomlContent = TOML.stringify(config);
     fs.writeFileSync(this.configPath, tomlContent, 'utf-8');
   }
