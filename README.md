@@ -138,6 +138,14 @@ silently rewritten.
 
 ## Why the usable window is ~828K
 
+Configure Codex to request a 1,000,000-token context window for new
+`gpt-5.6-sol` conversations. In the verified Codex environment, the expected
+usable input window is approximately **828,400 tokens**, not a full 1,000,000.
+
+The repository keeps the name `codex-1M`: “1M” describes the configured request
+and the model family's advertised scale. It does not mean that Codex allocates a
+1,000,000-token usable input budget.
+
 The distinction below is central to this project, not a footnote.
 
 | Stage | Value | Status |
