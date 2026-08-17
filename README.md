@@ -1,39 +1,17 @@
-# codex-1M — request 1,000,000 tokens, expect ~828K usable
+# codex-1M
+
+Unlock Codex's long-context mode with one command.
 
 [![CI](https://github.com/MaxForAI/codex-1M/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MaxForAI/codex-1M/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/github/package-json/v/MaxForAI/codex-1M)](https://github.com/MaxForAI/codex-1M/releases)
 [![License](https://img.shields.io/github/license/MaxForAI/codex-1M)](LICENSE)
 
-Configure Codex to request a 1,000,000-token context window for new
-`gpt-5.6-sol` conversations. In the verified Codex environment, the expected
-usable input window is approximately **828,400 tokens**, not a full 1,000,000.
+codex-1M configures new `gpt-5.6-sol` conversations to request a 1,000,000-token
+context window, with five simple commands to install, enable, inspect, disable,
+or remove the integration.
 
-The repository keeps the name `codex-1M`: “1M” describes the configured request
-and the model family's advertised scale. It does not mean that Codex allocates a
-1,000,000-token usable input budget.
-
-## Why the usable window is ~828K
-
-The distinction below is central to this project, not a footnote.
-
-| Stage | Value | Status |
-| --- | ---: | --- |
-| Plugin writes `model_context_window` | 1,000,000 | **Verified fact:** this is a configuration request |
-| Codex online model metadata cap | 872,000 | **Verified fact:** Codex clamps the request to `max_context_window` |
-| Usable-input allocation | 872,000 × 95% = **828,400** | **Verified fact:** observed in a new `gpt-5.6-sol` task |
-| Auto-compact threshold | 872,000 × 90% = **784,800** | **Verified fact:** the configured 900,000/1,000,000 ratio is applied after the cap |
-| Advertised model API total window | 1.05M | A different concept from the Codex product's usable input budget |
-
-**Reasonable inference, not an official explanation:** 872,000 equals
-1,000,000 − 128,000, and official model documentation lists a 128K maximum
-output. This is consistent with Codex reserving output capacity first, but
-OpenAI has not directly documented why the Codex product-level cap is exactly
-872,000. The verified 872,000 cap, 95% allocation, 828,400 observed usable
-window, and ~784,800 effective compaction threshold do not depend on that
-inference.
-
-Changing configuration does not resize an existing conversation. Always start
-a new task and use `/status` to verify the value actually allocated to it.
+Actual usable window is capped by Codex — see
+[Why the usable window is ~828K](#why-the-usable-window-is-828k).
 
 ## Install
 
@@ -157,6 +135,29 @@ same-directory temporary file, `fsync`'d, and atomically renamed. Surgical TOML
 patches preserve unrelated comments, whitespace, ordering, tables, and values.
 Malformed TOML and user-modified managed values are rejected rather than
 silently rewritten.
+
+## Why the usable window is ~828K
+
+The distinction below is central to this project, not a footnote.
+
+| Stage | Value | Status |
+| --- | ---: | --- |
+| Plugin writes `model_context_window` | 1,000,000 | **Verified fact:** this is a configuration request |
+| Codex online model metadata cap | 872,000 | **Verified fact:** Codex clamps the request to `max_context_window` |
+| Usable-input allocation | 872,000 × 95% = **828,400** | **Verified fact:** observed in a new `gpt-5.6-sol` task |
+| Auto-compact threshold | 872,000 × 90% = **784,800** | **Verified fact:** the configured 900,000/1,000,000 ratio is applied after the cap |
+| Advertised model API total window | 1.05M | A different concept from the Codex product's usable input budget |
+
+**Reasonable inference, not an official explanation:** 872,000 equals
+1,000,000 − 128,000, and official model documentation lists a 128K maximum
+output. This is consistent with Codex reserving output capacity first, but
+OpenAI has not directly documented why the Codex product-level cap is exactly
+872,000. The verified 872,000 cap, 95% allocation, 828,400 observed usable
+window, and ~784,800 effective compaction threshold do not depend on that
+inference.
+
+Changing configuration does not resize an existing conversation. Always start
+a new task and use `/status` to verify the value actually allocated to it.
 
 ## Caveats
 

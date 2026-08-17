@@ -1,7 +1,7 @@
 {
   "name": "codex-1m",
-  "version": "2.0.0",
-  "description": "Use five commands to request long context in Codex, with approximately 828,400 usable input tokens in the verified environment.",
+  "version": "2.0.1",
+  "description": "Unlock Codex's long-context mode with five simple commands to install, enable, inspect, disable, or remove the integration.",
   "author": {
     "name": "MaxForAI",
     "url": "https://github.com/MaxForAI"
@@ -19,8 +19,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Codex 1M Context",
-    "shortDescription": "Request 1M config, expect about 828K usable",
-    "longDescription": "Adds an MCP server and Skill that route five case-insensitive commands to install, uninstall, configure, remove, and inspect a 1,000,000-token request with approximately 828,400 usable input tokens in the verified Codex environment.",
+    "shortDescription": "Unlock Codex long context in five commands",
+    "longDescription": "Adds an MCP server and Skill that route five case-insensitive commands to install, uninstall, enable, disable, and inspect a 1,000,000-token context request; the verified Codex environment caps expected usable input at approximately 828,400 tokens.",
     "developerName": "MaxForAI",
     "category": "Developer Tools",
     "capabilities": [

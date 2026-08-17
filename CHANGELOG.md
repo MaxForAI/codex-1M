@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-08-17
+
+### Changed
+
+- Reordered the README to lead with codex-1M's value, one-command install, and
+  five-command workflow. The complete ~828K usable-window disclosure, verified
+  limit chain, and fact/inference distinction are unchanged in substance and
+  moved intact to a dedicated later section.
+- Reframed plugin descriptions around long-context capability while retaining
+  the actual usable limit in the long description.
+- Replaced README prose-coupled routing assertions with semantic checks for the
+  five command rows, limit values, safety files, state fields, and explicit
+  profile workflow.
+
 ## [2.0.0] - 2026-08-17
 
 ### Breaking changes
@@ -11,7 +25,7 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `1m on` and `1m off` now operate on global Codex configuration by default so
   new Codex Desktop tasks receive the setting. Profile mode is now explicit via
   `--profile`; `--global` remains a compatibility alias for the default.
-- Removed the `1m update` and `1m doctor` terminal commands and their
+- Removed the `1m update` and `1m doctor` terminal commands in 2.0.0 and their
   `update_1m` and `doctor_1m` MCP tools. The supported command set is now
   install, uninstall, on, off, and state.
 
@@ -88,3 +102,4 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 [1.8.0]: https://github.com/MaxForAI/codex-1M/releases/tag/v1.8.0
 [2.0.0]: https://github.com/MaxForAI/codex-1M/releases/tag/v2.0.0
+[2.0.1]: https://github.com/MaxForAI/codex-1M/releases/tag/v2.0.1

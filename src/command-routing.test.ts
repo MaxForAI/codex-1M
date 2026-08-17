@@ -45,31 +45,54 @@ describe('short command routing', () => {
     expect(manifest.version).toBe(packageJson.version);
   });
 
-  it('documents one bootstrap and the unified command table without legacy npx commands', () => {
+  it('documents the unified command structure and full limit disclosure', () => {
     const readme = fs.readFileSync(path.join(process.cwd(), 'README.md'), 'utf8');
 
     expect(readme).toContain('## In Codex conversation');
     expect(readme).toContain('npx --yes github:MaxForAI/codex-1M install');
     expect(readme).toContain('Fallback');
-    expect(readme).toContain('| `1m install` | `install_1m` |');
-    expect(readme).toContain('| `1m uninstall` | `uninstall_1m` |');
-    expect(readme).toContain('| `1m on` | `toggle_1m_context(enable=true)` |');
-    expect(readme).toContain('| `1m off` | `toggle_1m_context(enable=false)` |');
-    expect(readme).toContain('| `1m state` | `context_status` |');
-    expect(readme).toContain('A full uninstall likewise removes that tool');
+    const commandRows = [
+      '| `1m install` | `install_1m` |',
+      '| `1m uninstall` | `uninstall_1m` |',
+      '| `1m on` | `toggle_1m_context(enable=true)` |',
+      '| `1m off` | `toggle_1m_context(enable=false)` |',
+      '| `1m state` | `context_status` |',
+    ];
+    commandRows.forEach((row) => expect(readme).toContain(row));
     expect(readme).toContain('Do not use `npx 1m`');
-    expect(readme).toContain('$CODEX_HOME/1m.config.toml');
+    expect(readme).toMatch(/1m on --profile[\s\S]*codex --profile 1m[\s\S]*1m off --profile/);
     expect(readme).toContain('codex --profile 1m');
     expect(readme).toContain('codex-1m-state.json');
     expect(readme).toContain('codex-1m-pristine.toml');
     expect(readme).toContain('$CODEX_HOME/.codex-1m.lock');
-    expect(readme).toContain('Global configuration: enabled');
-    expect(readme).toContain('1M profile file: missing');
-    expect(readme).toContain('Current conversation: unknown');
-    expect(readme).toContain('1M Configured: Yes');
-    expect(readme).toContain('Requested context window: 1,000,000');
-    expect(readme).toContain('Expected usable window: ~828,400');
-    expect(readme).toContain('Auto-compact: configured 900,000 → expected effective ~784,800');
+    expect(readme).toContain('872,000');
+    expect(readme).toContain('828,400');
+    expect(readme).toContain('Requested context window:');
+    expect(readme).toContain('Expected usable window:');
+    expect(readme).toContain('Auto-compact:');
+    expect(readme).toContain('Current conversation:');
+  });
+
+  it('leads with value and keeps the usable-window disclosure in a linked later section', () => {
+    const readme = fs.readFileSync(path.join(process.cwd(), 'README.md'), 'utf8');
+    const opening = readme.slice(0, readme.indexOf('## Install'));
+    const safeWritesIndex = readme.indexOf('## Safe writes');
+    const limitsIndex = readme.indexOf('## Why the usable window is ~828K');
+    const caveatsIndex = readme.indexOf('## Caveats');
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(process.cwd(), '.codex-plugin', 'plugin.json'), 'utf8')
+    );
+
+    expect(readme.split('\n')[0]).toBe('# codex-1M');
+    expect(opening).toContain("Unlock Codex's long-context mode with one command.");
+    expect(opening).toContain('[Why the usable window is ~828K](#why-the-usable-window-is-828k)');
+    expect(opening).not.toContain('828,400');
+    expect(opening).not.toContain('872,000');
+    expect(limitsIndex).toBeGreaterThan(safeWritesIndex);
+    expect(limitsIndex).toBeLessThan(caveatsIndex);
+    expect(manifest.description).not.toMatch(/828,?400|usable/i);
+    expect(manifest.interface.shortDescription).not.toMatch(/828,?400|usable/i);
+    expect(manifest.interface.longDescription).toContain('828,400');
   });
 
   it('routes all case-insensitive chat mappings from the plugin Skill', () => {

@@ -8912,8 +8912,8 @@ var require_package = __commonJS({
   "package.json"(exports2, module2) {
     module2.exports = {
       name: "codex-1m",
-      version: "2.0.0",
-      description: "Request long Codex context with about 828K usable input tokens",
+      version: "2.0.1",
+      description: "Unlock Codex long-context mode with install, uninstall, on, off, and state commands",
       main: "dist/index.js",
       bin: {
         "1m": "./dist/cli.js",
