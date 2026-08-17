@@ -8,35 +8,23 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { ConfigManager } from './config-manager';
 import { ConfigModifier, formatConfigStatus } from './config-modifier';
+import { doctorCodex1M, formatDoctorResult } from './doctor';
 import { MCP_TOOLS } from './mcp-tools';
 import {
   formatInstallResult,
+  formatUpdateResult,
   formatUninstallResult,
   installCodex1M,
+  updateCodex1M,
   uninstallCodex1M,
 } from './integration';
-
-const TOOL_DESCRIPTIONS: Record<string, string> = {
-  install_1m:
-    "Install or repair codex-1M when the user types '1m install'. Registers the MCP server, adds the MaxForAI/codex-1M marketplace, installs the plugin, and writes managed prompts. Matching is case-insensitive.",
-  uninstall_1m:
-    "Fully uninstall codex-1M when the user types '1m uninstall'. Removes managed configuration, prompts, plugin, marketplace, and this MCP registration. Matching is case-insensitive; reinstall afterward requires the terminal bootstrap command.",
-  toggle_1m_context:
-    "Toggle Codex 1M-token context. Call with enable=true when the user types '1M on', enable=false when the user types '1M off'. Matching is case-insensitive.",
-  context_status:
-    "Report current Codex context configuration. Call when the user types '1M state'. Matching is case-insensitive.",
-};
-
-const ADVERTISED_MCP_TOOLS = MCP_TOOLS.map((tool) => ({
-  ...tool,
-  description: TOOL_DESCRIPTIONS[tool.name] ?? tool.description,
-}));
+import { PACKAGE_VERSION } from './version';
 
 // Create server instance
 const server = new Server(
   {
     name: 'codex-1m',
-    version: '1.6.0',
+    version: PACKAGE_VERSION,
   },
   {
     capabilities: {
@@ -48,7 +36,7 @@ const server = new Server(
 // List available tools
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
-    tools: ADVERTISED_MCP_TOOLS,
+    tools: MCP_TOOLS,
   };
 });
 
@@ -66,6 +54,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{
             type: 'text',
             text: formatInstallResult(installCodex1M())
+          }]
+        };
+      }
+
+      case 'update_1m': {
+        return {
+          content: [{
+            type: 'text',
+            text: formatUpdateResult(updateCodex1M())
+          }]
+        };
+      }
+
+      case 'doctor_1m': {
+        return {
+          content: [{
+            type: 'text',
+            text: formatDoctorResult(doctorCodex1M())
           }]
         };
       }

@@ -3,6 +3,16 @@
 Install, remove, enable, disable, and inspect Codex's 1M-token context support
 by typing one short command directly in a Codex conversation.
 
+## Install
+
+One command installs the GitHub package and runs its installer:
+
+```bash
+npx --yes github:MaxForAI/codex-1M install
+```
+
+Start a new Codex conversation after it completes.
+
 ## In Codex conversation
 
 After the one-time terminal bootstrap below, type any of these commands into a
@@ -10,31 +20,34 @@ Codex CLI or GUI conversation. Matching is case-insensitive.
 
 | Conversation command | MCP tool call | Result |
 | --- | --- | --- |
-| `1m install` | `install_1m` | Install or repair marketplace, plugin, MCP registration, and prompts |
-| `1m uninstall` | `uninstall_1m` | Fully remove managed config, prompts, plugin, marketplace, and MCP registration |
+| `1m install` | `install_1m` | Install or repair the marketplace and plugin-provided MCP/Skill integration |
+| `1m update` | `update_1m` | Refresh the marketplace and reinstall the latest plugin version |
+| `1m doctor` | `doctor_1m` | Diagnose CLI, repository, plugin, config, MCP, profile, and state files |
+| `1m uninstall` | `uninstall_1m` | Remove managed config, legacy copies, plugin, and marketplace |
 | `1m on` | `toggle_1m_context(enable=true)` | Enable the existing opt-in `1m` profile behavior |
 | `1m off` | `toggle_1m_context(enable=false)` | Disable the existing opt-in `1m` profile behavior |
 | `1m state` | `context_status` | Report the current context configuration |
 
-`1M INSTALL`, `1m UnInstall`, and other casing variants map to the same tools.
+`1M INSTALL`, `1m Doctor`, and other casing variants map to the same tools.
 Start a new Codex session after installing, uninstalling, or changing context
 configuration so the MCP/config state is reloaded.
 
-## First install: terminal bootstrap
+## Fallback: global terminal bootstrap
 
-`codex-1m` is not currently published in the npm registry. Install the GitHub
-repository globally once, then run the installer in a terminal:
+If the one-command `npx` bootstrap is unavailable, install the GitHub repository
+globally and then run the installer:
 
 ```bash
 npm i -g github:MaxForAI/codex-1M
 codex-1m install
 ```
 
-This two-step bootstrap is unavoidable: before the MCP server is registered,
-a Codex conversation has no `install_1m` tool to call. The second command adds
-the `MaxForAI/codex-1M` marketplace, installs `codex-1m@codex-1m`, registers the
-bundled MCP server, and writes the managed prompt files. After starting a new
-Codex session, `1m install` in conversation can repair that integration.
+Before the plugin is installed, a Codex conversation has no `install_1m` tool to
+call. The installer adds the `MaxForAI/codex-1M` marketplace and installs
+`codex-1m@codex-1m`. The plugin manifest then provides its bundled MCP server and
+formal command-routing Skill without writing a duplicate global MCP entry or
+copying prompt files. After starting a new Codex session, `1m install` in a
+conversation can repair that integration.
 
 Do not use `npx 1m`: `1m` is also the name of an unrelated npm package, and
 `npx` package resolution is not the codex-1M command. If `command -v 1m`
@@ -45,7 +58,7 @@ The package also declares the terminal alias `1m` for bootstrap and recovery,
 so `1m install` and `1m uninstall` work in a shell when that alias has no PATH
 conflict. The longer `codex-1m` name is the documented recovery command because
 it is unambiguous. Terminal commands are a bootstrap/fallback surface; the
-normal product surface is the five-command conversation table above.
+normal product surface is the seven-command conversation table above.
 
 OpenAI's [Codex MCP documentation](https://developers.openai.com/codex/mcp)
 states that the ChatGPT desktop app and Codex CLI share MCP configuration. The
@@ -66,8 +79,9 @@ configuration, then:
 - stops with an explicit conflict, without deleting or restoring anything, if
   a user changed any managed global value after `1m on --global`;
 - removes `1m.config.toml`, legacy `[profiles.1m]`, and
-  `[mcp_servers.codex-1m]` while preserving unrelated TOML settings;
-- removes only recognized codex-1M prompt files;
+  a legacy `[mcp_servers.codex-1m]` left by versions before 1.7.0 while
+  preserving unrelated TOML settings;
+- removes only recognized legacy codex-1M prompt copies;
 - removes `codex-1m@codex-1m` and its verified `codex-1m` marketplace entry.
 
 Uninstall is idempotent. Because it fully removes the MCP server and plugin,
@@ -87,8 +101,8 @@ cleanup still finishes and the result prints the remaining manual action.
 
 By default, `1m on` creates the Codex V2 profile file at
 `$CODEX_HOME/1m.config.toml` (`~/.codex/1m.config.toml` unless `CODEX_HOME` is
-set) and registers the MCP server with an absolute Node/script path that works
-from terminal and GUI processes without relying on npm's PATH lookup:
+set). MCP availability comes from the installed plugin manifest and is not
+written into the global config by this command:
 
 ```toml
 model = "gpt-5.6-sol"
@@ -128,6 +142,22 @@ checks that `1m.config.toml` exists and has all three expected values. Current
 conversation capacity is deliberately `unknown`; start a new conversation and
 use `/status` to verify it.
 
+## Update and doctor
+
+`1m update` uses the verified Codex CLI sequence:
+
+```bash
+codex plugin marketplace upgrade codex-1m --json
+codex plugin remove codex-1m@codex-1m --json
+codex plugin add codex-1m@codex-1m --json
+```
+
+If the marketplace or plugin is missing, it is added instead. `1m doctor` is
+read-only and reports the Codex CLI version, configured marketplace snapshot
+version, installed plugin version, configuration mode (`global`, `profile file`,
+or `not configured`), bundled MCP server path/existence/executability, and the
+presence of `1m.config.toml` and `codex-1m-state.json`.
+
 ## Safe writes and formatting
 
 All codex-1M writes are serialized by `$CODEX_HOME/.codex-1m.lock`. Data is
@@ -164,14 +194,22 @@ codex-1M/
 ├── .agents/plugins/marketplace.json
 ├── .mcp.json
 ├── mcp/server.cjs
-├── prompts/
+├── skills/codex-1m/SKILL.md
 ├── src/cli.ts
 └── package.json
 ```
 
 `.codex-plugin/plugin.json` points to `.mcp.json`, which starts the
 dependency-bundled `mcp/server.cjs` from the installed plugin root. Codex does
-not need to run npm lifecycle scripts inside the plugin cache.
+not need to run npm lifecycle scripts inside the plugin cache. The manifest's
+`"skills": "./skills/"` field loads the formal Skill. `package.json` is the
+version source of truth: the CLI and MCP server import it, and the build runs
+`scripts/sync-plugin-version.cjs` to update the plugin manifest before compiling.
+
+## Roadmap
+
+Publish the package as `@maxforai/codex-1m`, with matching Git tags, GitHub
+Releases, and npm provenance for each release.
 
 ## Development and verification
 
@@ -192,8 +230,8 @@ codex
 ```
 
 In that interactive session, enter these one at a time: `1M install`, `1m
-state`, `1M on`, `1m off`, and `1m uninstall`. Confirm the transcript calls
-`install_1m`, `context_status`,
+update`, `1m doctor`, `1m state`, `1M on`, `1m off`, and `1m uninstall`.
+Confirm the transcript calls `install_1m`, `update_1m`, `doctor_1m`, `context_status`,
 `toggle_1m_context` with `enable=true`, `toggle_1m_context` with `enable=false`,
 and `uninstall_1m`, respectively. After uninstall, leave the session and run
 `codex-1m install` in the terminal to restore the isolated environment.

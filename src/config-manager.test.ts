@@ -137,6 +137,23 @@ describe('Codex configuration safety', () => {
     expect(fs.existsSync(manager.getStatePath())).toBe(false);
   });
 
+  it('creates exactly one original-state backup per global on/off transaction', () => {
+    const original = '# original\nmodel = "gpt-user"\napproval_policy = "never"\n';
+    fs.writeFileSync(configPath, original, 'utf8');
+
+    modifier.enable1MContext(true);
+    let backups = fs.readdirSync(tempDir).filter((name) => name.startsWith('config.toml.bak.'));
+    expect(backups).toHaveLength(1);
+    expect(fs.readFileSync(path.join(tempDir, backups[0]), 'utf8')).toBe(original);
+
+    const beforeOff = fs.readFileSync(configPath, 'utf8');
+    modifier.disable1MContext(true);
+    backups = fs.readdirSync(tempDir).filter((name) => name.startsWith('config.toml.bak.'));
+    expect(backups).toHaveLength(2);
+    const newest = backups.find((name) => fs.readFileSync(path.join(tempDir, name), 'utf8') === beforeOff);
+    expect(newest).toBeDefined();
+  });
+
   it('stops global off on a user edit and leaves config/state untouched', () => {
     modifier.enable1MContext(true);
     manager.patchConfig([{ type: 'set', key: 'model', value: 'gpt-user-after-enable' }]);
@@ -161,7 +178,11 @@ describe('Codex configuration safety', () => {
     ].join('\n');
     fs.writeFileSync(configPath, original, 'utf8');
 
-    modifier.registerMCPServer('/usr/bin/node', ['/plugin/server.cjs']);
+    manager.patchConfig([{
+      type: 'set-table',
+      path: ['mcp_servers', 'codex-1m'],
+      value: { command: '/usr/bin/node', args: ['/plugin/server.cjs'] },
+    }]);
     const updated = fs.readFileSync(configPath, 'utf8');
 
     expect(updated).toContain('# top comment');

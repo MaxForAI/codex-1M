@@ -61,19 +61,19 @@ about undocumented internal contracts:
 
 ## Recommended implementation paths
 
-### 1. Desktop slash command plus MCP tool — lowest friction
+### 1. Plugin Skill plus MCP tool — lowest friction
 
-Files: `prompts/1m-toggle.md`, `src/mcp-server.ts`, and the user's existing MCP
-registration created by `1m install` or terminal `1m on`.
+Files: `skills/codex-1m/SKILL.md`, `.mcp.json`, and `src/mcp-server.ts`, all
+loaded through `.codex-plugin/plugin.json` after `1m install`.
 
 After the terminal bootstrap, restart the desktop app, then type `1m install`,
-`1m uninstall`, `1m state`, `1m on`, or `1m off` in the conversation. Matching
-is case-insensitive. The shared MCP descriptions instruct Codex to call
-`install_1m`, `uninstall_1m`, `context_status`, or `toggle_1m_context`; the
-prompt file remains a compatibility aid if custom prompts are available on the
-installed build. First install still requires a terminal because the MCP server
-does not exist yet. A full uninstall removes that server, so reinstall afterward
-with `codex-1m install` in a terminal.
+`1m update`, `1m doctor`, `1m uninstall`, `1m state`, `1m on`, or `1m off` in
+the conversation. Matching is case-insensitive. The Skill routes these commands
+to the MCP tools, whose descriptions are maintained once in `src/mcp-tools.ts`.
+The installer no longer copies custom prompt files or writes a duplicate global
+MCP registration. First install still requires a terminal because the plugin's
+MCP server does not exist yet. A full uninstall removes that server, so reinstall
+afterward with `codex-1m install` in a terminal.
 
 User experience: visible/searchable in the composer slash list, but not always
 on screen. The tool result appears in chat. Changing the file does not resize

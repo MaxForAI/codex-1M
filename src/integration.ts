@@ -2,11 +2,7 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ConfigManager } from './config-manager';
-import { ConfigModifier } from './config-modifier';
 import {
-  getCodexHome,
-  isCodex1MPrompt,
-  MANAGED_PROMPT_FILES,
   uninstallLocalArtifacts,
   UninstallLocalResult,
 } from './uninstaller';
@@ -17,18 +13,19 @@ export const PLUGIN_ID = `${MARKETPLACE_NAME}@${MARKETPLACE_NAME}`;
 
 export interface CodexRunner {
   run(args: string[]): unknown;
-}
-
-export interface PromptInstallResult {
-  written: string[];
-  preserved: string[];
+  runText(args: string[]): string;
 }
 
 export interface InstallResult {
   marketplace: 'added' | 'already configured';
   plugin: 'installed' | 'already installed';
-  mcpServer: string;
-  prompts: PromptInstallResult;
+  integration: 'provided by plugin manifest';
+}
+
+export interface UpdateResult {
+  marketplace: 'added' | 'upgraded';
+  plugin: 'installed' | 'reinstalled';
+  installedVersion: string;
 }
 
 export interface PluginRemovalResult {
@@ -79,21 +76,35 @@ export function createCodexRunner(codexBinary: string = resolveCodexBinary()): C
       }
       return JSON.parse(result.stdout || '{}');
     },
+    runText(args: string[]): string {
+      const result = spawnSync(codexBinary, args, {
+        encoding: 'utf8',
+        env: process.env,
+      });
+      if (result.error) throw result.error;
+      if (result.status !== 0) {
+        const detail = result.stderr?.trim() || result.stdout?.trim();
+        throw new Error(
+          `codex ${args.join(' ')} exited with status ${result.status}${detail ? `: ${detail}` : ''}`
+        );
+      }
+      return result.stdout.trim();
+    },
   };
 }
 
-function isPluginInstalled(pluginList: any): boolean {
+export function isPluginInstalled(pluginList: any): boolean {
   return Array.isArray(pluginList?.installed) &&
     pluginList.installed.some((plugin: any) => plugin.pluginId === PLUGIN_ID);
 }
 
-function findMarketplace(marketplaceList: any): any {
+export function findMarketplace(marketplaceList: any): any {
   return Array.isArray(marketplaceList?.marketplaces)
     ? marketplaceList.marketplaces.find((marketplace: any) => marketplace.name === MARKETPLACE_NAME)
     : undefined;
 }
 
-function isManagedMarketplace(marketplace: any, pluginWasInstalled: boolean): boolean {
+export function isManagedMarketplace(marketplace: any, pluginWasInstalled: boolean): boolean {
   if (marketplace?.name !== MARKETPLACE_NAME) return false;
   if (pluginWasInstalled) return true;
 
@@ -115,47 +126,10 @@ function isManagedMarketplace(marketplace: any, pluginWasInstalled: boolean): bo
   return false;
 }
 
-export function resolveBundledMcpServerPath(): string {
-  return path.resolve(__dirname, '..', 'mcp', 'server.cjs');
-}
-
-export function resolvePromptSourceDir(): string {
-  return path.resolve(__dirname, '..', 'prompts');
-}
-
-export function installManagedPrompts(
-  codexHome: string = getCodexHome(),
-  sourceDir: string = resolvePromptSourceDir()
-): PromptInstallResult {
-  const destinationDir = path.join(codexHome, 'prompts');
-  fs.mkdirSync(destinationDir, { recursive: true });
-  const written: string[] = [];
-  const preserved: string[] = [];
-
-  for (const fileName of MANAGED_PROMPT_FILES) {
-    const source = path.join(sourceDir, fileName);
-    const destination = path.join(destinationDir, fileName);
-    if (fs.existsSync(destination) && !isCodex1MPrompt(fs.readFileSync(destination, 'utf8'))) {
-      preserved.push(destination);
-      continue;
-    }
-    fs.copyFileSync(source, destination);
-    written.push(destination);
-  }
-
-  return { written, preserved };
-}
-
 export function installCodex1M(options: {
   runner?: CodexRunner;
-  configManager?: ConfigManager;
-  codexHome?: string;
-  mcpServerPath?: string;
-  promptSourceDir?: string;
 } = {}): InstallResult {
   const runner = options.runner || createCodexRunner();
-  const configManager = options.configManager || new ConfigManager();
-  const codexHome = options.codexHome || getCodexHome();
   const source = process.env.CODEX_1M_MARKETPLACE_SOURCE || GITHUB_MARKETPLACE;
 
   const pluginList = runner.run(['plugin', 'list', '--json']);
@@ -179,14 +153,46 @@ export function installCodex1M(options: {
     plugin = 'installed';
   }
 
-  const modifier = new ConfigModifier(configManager);
-  const mcpServer = modifier.registerMCPServer(
-    process.execPath,
-    [options.mcpServerPath || resolveBundledMcpServerPath()]
-  );
-  const prompts = installManagedPrompts(codexHome, options.promptSourceDir);
+  return { marketplace, plugin, integration: 'provided by plugin manifest' };
+}
 
-  return { marketplace, plugin, mcpServer, prompts };
+function installedPluginVersion(pluginList: any): string {
+  const plugin = Array.isArray(pluginList?.installed)
+    ? pluginList.installed.find((entry: any) => entry.pluginId === PLUGIN_ID)
+    : undefined;
+  return typeof plugin?.version === 'string' ? plugin.version : 'unknown';
+}
+
+export function updateCodex1M(options: { runner?: CodexRunner } = {}): UpdateResult {
+  const runner = options.runner || createCodexRunner();
+  const source = process.env.CODEX_1M_MARKETPLACE_SOURCE || GITHUB_MARKETPLACE;
+  const pluginList = runner.run(['plugin', 'list', '--json']);
+  const installed = isPluginInstalled(pluginList);
+  const marketplaceList = runner.run(['plugin', 'marketplace', 'list', '--json']);
+  const namedMarketplace = findMarketplace(marketplaceList);
+  if (namedMarketplace && !isManagedMarketplace(namedMarketplace, installed)) {
+    throw new Error(
+      'A marketplace named codex-1m already exists, but its source is not MaxForAI/codex-1M. Remove or rename it before updating.'
+    );
+  }
+
+  let marketplace: UpdateResult['marketplace'];
+  if (!namedMarketplace) {
+    runner.run(['plugin', 'marketplace', 'add', source, '--json']);
+    marketplace = 'added';
+  } else {
+    runner.run(['plugin', 'marketplace', 'upgrade', MARKETPLACE_NAME, '--json']);
+    marketplace = 'upgraded';
+  }
+
+  if (installed) runner.run(['plugin', 'remove', PLUGIN_ID, '--json']);
+  runner.run(['plugin', 'add', PLUGIN_ID, '--json']);
+  const refreshed = runner.run(['plugin', 'list', '--json']);
+  return {
+    marketplace,
+    plugin: installed ? 'reinstalled' : 'installed',
+    installedVersion: installedPluginVersion(refreshed),
+  };
 }
 
 export function removeCodexPlugin(runner?: CodexRunner): PluginRemovalResult {
@@ -252,12 +258,19 @@ export function formatInstallResult(result: InstallResult): string {
     '===================',
     `Marketplace ${MARKETPLACE_NAME}: ${result.marketplace}`,
     `Plugin ${PLUGIN_ID}: ${result.plugin}`,
-    `MCP server: ${result.mcpServer}`,
-    `Prompts written: ${result.prompts.written.length}`,
-    result.prompts.preserved.length > 0
-      ? `Prompts preserved because they contain user content: ${result.prompts.preserved.join(', ')}`
-      : 'No conflicting prompt files found.',
-    'Start a new Codex conversation, then use 1m on, 1m off, or 1m state.',
+    'MCP server and command routing Skill: provided by the installed plugin manifest',
+    'Start a new Codex conversation, then use 1m on, 1m off, 1m state, 1m update, or 1m doctor.',
+  ].join('\n');
+}
+
+export function formatUpdateResult(result: UpdateResult): string {
+  return [
+    '1m update complete',
+    '==================',
+    `Marketplace ${MARKETPLACE_NAME}: ${result.marketplace}`,
+    `Plugin ${PLUGIN_ID}: ${result.plugin}`,
+    `Installed plugin version: ${result.installedVersion}`,
+    'Start a new Codex conversation to load the updated plugin.',
   ].join('\n');
 }
 

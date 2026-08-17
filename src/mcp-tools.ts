@@ -1,7 +1,25 @@
 export const MCP_TOOLS = [
   {
     name: 'install_1m',
-    description: "Install or repair codex-1M when the user types '1m install'. Registers the MCP server, adds the MaxForAI/codex-1M marketplace, installs the plugin, and writes managed prompts. Matching is case-insensitive.",
+    description: "Install or repair codex-1M when the user types '1m install'. Adds the MaxForAI/codex-1M marketplace and installs the plugin, whose manifest provides the MCP server and command Skill. Matching is case-insensitive.",
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: 'update_1m',
+    description: "Update codex-1M when the user types '1m update'. Refreshes the codex-1m marketplace with 'codex plugin marketplace upgrade codex-1m --json', then removes and re-adds the plugin at the refreshed version. Matching is case-insensitive.",
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: 'doctor_1m',
+    description: "Diagnose codex-1M when the user types '1m doctor'. Reports Codex CLI, marketplace repository, installed plugin, configuration mode, MCP server, profile file, and state file status. Matching is case-insensitive.",
     inputSchema: {
       type: 'object',
       properties: {},
@@ -10,7 +28,7 @@ export const MCP_TOOLS = [
   },
   {
     name: 'uninstall_1m',
-    description: "Fully uninstall codex-1M when the user types '1m uninstall'. Removes managed configuration, prompts, plugin, marketplace, and this MCP registration. Matching is case-insensitive; reinstall afterward requires the terminal bootstrap command.",
+    description: "Fully uninstall codex-1M when the user types '1m uninstall'. Removes managed configuration, legacy prompt copies, plugin, and marketplace. Matching is case-insensitive; reinstall afterward requires the terminal bootstrap command.",
     inputSchema: {
       type: 'object',
       properties: {},

@@ -1,7 +1,7 @@
 {
   "name": "codex-1m",
-  "version": "1.6.0",
-  "description": "Use five 1M conversation commands to install, uninstall, and control a 1,000,000-token Codex context window.",
+  "version": "1.7.0",
+  "description": "Use seven 1M conversation commands to install, update, diagnose, uninstall, and control a 1,000,000-token Codex context window.",
   "author": {
     "name": "MaxForAI",
     "url": "https://github.com/MaxForAI"
@@ -9,18 +9,29 @@
   "homepage": "https://github.com/MaxForAI/codex-1M#readme",
   "repository": "https://github.com/MaxForAI/codex-1M",
   "license": "MIT",
-  "keywords": ["codex", "context-window", "mcp", "1m"],
+  "keywords": [
+    "codex",
+    "context-window",
+    "mcp",
+    "1m"
+  ],
   "mcpServers": "./.mcp.json",
+  "skills": "./skills/",
   "interface": {
     "displayName": "Codex 1M Context",
-    "shortDescription": "Use 1M install/uninstall/on/off/state in chat",
-    "longDescription": "Adds MCP tools that route five case-insensitive 1M conversation commands to install, uninstall, enable, disable, and inspect a 1,000,000-token Codex context configuration.",
+    "shortDescription": "Use 1M lifecycle and context commands in chat",
+    "longDescription": "Adds an MCP server and Skill that route seven case-insensitive 1M conversation commands to install, update, diagnose, uninstall, enable, disable, and inspect a 1,000,000-token Codex context configuration.",
     "developerName": "MaxForAI",
     "category": "Developer Tools",
-    "capabilities": ["Read", "Write"],
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
     "websiteURL": "https://github.com/MaxForAI/codex-1M",
     "defaultPrompt": [
       "1M install",
+      "1M update",
+      "1M doctor",
       "1M uninstall",
       "1M on",
       "1M off",

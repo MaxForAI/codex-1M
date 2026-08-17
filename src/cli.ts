@@ -3,19 +3,23 @@
 import { Command } from 'commander';
 import { ConfigManager } from './config-manager';
 import { ConfigModifier, formatConfigStatus } from './config-modifier';
+import { doctorCodex1M, formatDoctorResult } from './doctor';
 import {
   formatInstallResult,
+  formatUpdateResult,
   formatUninstallResult,
   installCodex1M,
+  updateCodex1M,
   uninstallCodex1M,
 } from './integration';
+import { PACKAGE_VERSION } from './version';
 
 export const program = new Command();
 
 program
   .name('1m')
-  .description('Install, uninstall, and control Codex 1M support')
-  .version('1.6.0');
+  .description('Install, update, diagnose, uninstall, and control Codex 1M support')
+  .version(PACKAGE_VERSION);
 
 program
   .command('on')
@@ -28,10 +32,6 @@ program
 
       const result = modifier.enable1MContext(options.global);
       console.log(result);
-
-      // Register MCP server
-      modifier.registerMCPServer();
-      console.log('MCP server registered.');
 
       if (configManager.getBackupPath()) {
         console.log(`\nBackup created at: ${configManager.getBackupPath()}`);
@@ -96,8 +96,32 @@ program
   });
 
 program
+  .command('update')
+  .description('Refresh the marketplace and reinstall the latest codex-1m plugin')
+  .action(async () => {
+    try {
+      console.log(formatUpdateResult(updateCodex1M()));
+    } catch (error) {
+      console.error('Error during update:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('doctor')
+  .description('Diagnose Codex, plugin, configuration, and MCP server state')
+  .action(async () => {
+    try {
+      console.log(formatDoctorResult(doctorCodex1M()));
+    } catch (error) {
+      console.error('Error during doctor:', error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('uninstall')
-  .description('Safely remove codex-1m configuration, prompts, plugin, and marketplace')
+  .description('Safely remove codex-1m configuration, plugin, and marketplace')
   .action(async () => {
     try {
       console.log(formatUninstallResult(uninstallCodex1M()));

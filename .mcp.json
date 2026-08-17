@@ -2,7 +2,7 @@
   "mcpServers": {
     "codex-1m": {
       "title": "Codex 1M Context",
-      "description": "Route case-insensitive 1M install, uninstall, on, off, and state commands.",
+      "description": "Expose codex-1M lifecycle, diagnostic, and context tools.",
       "cwd": ".",
       "command": "node",
       "args": ["./mcp/server.cjs"]

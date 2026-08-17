@@ -293,22 +293,6 @@ export class ConfigModifier {
     };
   }
 
-  registerMCPServer(
-    command: string = process.execPath,
-    args: string[] = [path.join(__dirname, 'mcp-server.js')]
-  ): string {
-    this.configManager.patchConfig([{
-      type: 'set-table',
-      path: ['mcp_servers', 'codex-1m'],
-      value: {
-        command,
-        args,
-        description: 'Toggle 1M context window from within Codex',
-      },
-    }]);
-    return 'MCP server registered successfully.';
-  }
-
   hasUninstallArtifacts(config: CodexConfig = this.configManager.readConfig()): boolean {
     return Boolean(
       hasAnyManagedValue(config) ||

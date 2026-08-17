@@ -6,6 +6,7 @@ import {
   CodexRunner,
   installCodex1M,
   PLUGIN_ID,
+  updateCodex1M,
   uninstallCodex1M,
 } from './integration';
 
@@ -13,6 +14,13 @@ class FakeCodexRunner implements CodexRunner {
   calls: string[][] = [];
   marketplaceInstalled = false;
   pluginInstalled = false;
+  version = '1.7.0';
+
+  runText(args: string[]): string {
+    this.calls.push(args);
+    if (args.join(' ') === '--version') return 'codex-cli test';
+    throw new Error(`Unexpected fake Codex command: ${args.join(' ')}`);
+  }
 
   run(args: string[]): unknown {
     this.calls.push(args);
@@ -28,7 +36,11 @@ class FakeCodexRunner implements CodexRunner {
       };
     }
     if (command === 'plugin list --json') {
-      return { installed: this.pluginInstalled ? [{ pluginId: PLUGIN_ID }] : [] };
+      return {
+        installed: this.pluginInstalled
+          ? [{ pluginId: PLUGIN_ID, version: this.version }]
+          : [],
+      };
     }
     if (command === 'plugin marketplace add MaxForAI/codex-1M --json') {
       this.marketplaceInstalled = true;
@@ -42,6 +54,10 @@ class FakeCodexRunner implements CodexRunner {
       this.pluginInstalled = false;
       return { ok: true };
     }
+    if (command === 'plugin marketplace upgrade codex-1m --json') {
+      this.version = '1.8.0';
+      return { ok: true };
+    }
     if (command === 'plugin marketplace remove codex-1m --json') {
       this.marketplaceInstalled = false;
       return { ok: true };
@@ -50,7 +66,7 @@ class FakeCodexRunner implements CodexRunner {
   }
 }
 
-describe('conversation install/uninstall implementation', () => {
+describe('conversation install/update/uninstall implementation', () => {
   let tempDir: string;
   let codexHome: string;
   let manager: ConfigManager;
@@ -63,27 +79,18 @@ describe('conversation install/uninstall implementation', () => {
 
   afterEach(() => fs.rmSync(tempDir, { recursive: true, force: true }));
 
-  it('installs marketplace, plugin, MCP registration, and both prompts', () => {
+  it('installs only the marketplace and plugin-provided integration', () => {
     const runner = new FakeCodexRunner();
-    const mcpServerPath = path.join(tempDir, 'server.cjs');
-    const result = installCodex1M({ runner, configManager: manager, codexHome, mcpServerPath });
+    const result = installCodex1M({ runner });
 
     expect(result.marketplace).toBe('added');
     expect(result.plugin).toBe('installed');
-    expect(manager.readConfig().mcp_servers?.['codex-1m']).toEqual({
-      command: process.execPath,
-      args: [mcpServerPath],
-      description: 'Toggle 1M context window from within Codex',
-    });
-    expect(result.prompts.written.map((file) => path.basename(file))).toEqual([
-      '1m.md',
-      '1m-toggle.md',
-    ]);
-    expect(fs.readFileSync(path.join(codexHome, 'prompts', '1m.md'), 'utf8'))
-      .toContain('`1M install`: call `install_1m`');
+    expect(result.integration).toBe('provided by plugin manifest');
+    expect(manager.readConfig().mcp_servers?.['codex-1m']).toBeUndefined();
+    expect(fs.existsSync(path.join(codexHome, 'prompts'))).toBe(false);
   });
 
-  it('is repair-safe and does not overwrite a same-named user prompt', () => {
+  it('is repair-safe and does not touch a same-named user prompt', () => {
     const runner = new FakeCodexRunner();
     runner.marketplaceInstalled = true;
     runner.pluginInstalled = true;
@@ -91,22 +98,43 @@ describe('conversation install/uninstall implementation', () => {
     fs.mkdirSync(promptDir, { recursive: true });
     fs.writeFileSync(path.join(promptDir, '1m.md'), '# My private prompt', 'utf8');
 
-    const result = installCodex1M({ runner, configManager: manager, codexHome });
+    const result = installCodex1M({ runner });
 
     expect(result.marketplace).toBe('already configured');
     expect(result.plugin).toBe('already installed');
-    expect(result.prompts.preserved).toEqual([path.join(promptDir, '1m.md')]);
     expect(fs.readFileSync(path.join(promptDir, '1m.md'), 'utf8')).toBe('# My private prompt');
+  });
+
+  it('upgrades the named marketplace and reinstalls an existing plugin', () => {
+    const runner = new FakeCodexRunner();
+    runner.marketplaceInstalled = true;
+    runner.pluginInstalled = true;
+
+    const result = updateCodex1M({ runner });
+
+    expect(result).toEqual({
+      marketplace: 'upgraded',
+      plugin: 'reinstalled',
+      installedVersion: '1.8.0',
+    });
+    expect(runner.calls.map((args) => args.join(' '))).toEqual([
+      'plugin list --json',
+      'plugin marketplace list --json',
+      'plugin marketplace upgrade codex-1m --json',
+      `plugin remove ${PLUGIN_ID} --json`,
+      `plugin add ${PLUGIN_ID} --json`,
+      'plugin list --json',
+    ]);
   });
 
   it('fully uninstalls and leaves terminal reinstall as the recovery path', () => {
     const runner = new FakeCodexRunner();
-    installCodex1M({ runner, configManager: manager, codexHome });
+    installCodex1M({ runner });
 
     const result = uninstallCodex1M({ runner, configManager: manager, codexHome });
 
-    expect(result.local.config.removed).toContain('mcp_servers.codex-1m');
-    expect(result.local.removedPrompts).toHaveLength(2);
+    expect(result.local.config.changed).toBe(false);
+    expect(result.local.removedPrompts).toHaveLength(0);
     expect(result.plugin).toEqual({ plugin: 'removed', marketplace: 'removed' });
     expect(manager.readConfig().mcp_servers?.['codex-1m']).toBeUndefined();
     expect(runner.pluginInstalled).toBe(false);

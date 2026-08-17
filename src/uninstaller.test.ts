@@ -53,6 +53,8 @@ describe('uninstall', () => {
     fs.writeFileSync(managedPrompt, '# 1M Context Toggle\nUse the MCP tools.', 'utf8');
     fs.writeFileSync(userPrompt, '# User file\nKeep me.', 'utf8');
 
+    const beforeUninstall = fs.readFileSync(configPath, 'utf8');
+
     const result = uninstallLocalArtifacts(manager, codexHome);
     const finalConfig = manager.readConfig();
 
@@ -61,6 +63,8 @@ describe('uninstall', () => {
       '1m.config.toml',
     ]);
     expect(result.backupPath).not.toBeNull();
+    expect(fs.readFileSync(result.backupPath!, 'utf8')).toBe(beforeUninstall);
+    expect(fs.readdirSync(codexHome).filter((name) => name.startsWith('config.toml.bak.'))).toHaveLength(2);
     expect(fs.existsSync(manager.getProfilePath())).toBe(false);
     expect(finalConfig.profiles).toEqual({ work: { model: 'gpt-5.6-terra' } });
     expect(finalConfig.mcp_servers).toEqual({ github: { command: 'github-mcp' } });
@@ -76,7 +80,6 @@ describe('uninstall', () => {
       { type: 'set', key: 'model_context_window', value: 400000 },
     ]);
     modifier.enable1MContext(true);
-    modifier.registerMCPServer('/usr/bin/node', ['/plugin/server.cjs']);
 
     const result = uninstallLocalArtifacts(manager, codexHome);
 
@@ -108,7 +111,6 @@ describe('uninstall', () => {
 
   it('is idempotent and a later on recreates only the V2 profile', () => {
     modifier.enable1MContext(false);
-    modifier.registerMCPServer();
 
     const first = uninstallLocalArtifacts(manager, codexHome);
     const configAfterFirst = fs.readFileSync(configPath, 'utf8');

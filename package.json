@@ -1,6 +1,6 @@
 {
   "name": "codex-1m",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Codex plugin for toggling a 1M-token context window",
   "main": "dist/index.js",
   "bin": {
@@ -9,7 +9,7 @@
     "codex-1m-mcp": "./dist/mcp-server.js"
   },
   "scripts": {
-    "build": "tsc && npm run build:mcp-bundle",
+    "build": "node scripts/sync-plugin-version.cjs && tsc && npm run build:mcp-bundle",
     "build:mcp-bundle": "esbuild src/mcp-server.ts --bundle --platform=node --format=cjs --target=node18 --outfile=mcp/server.cjs && node scripts/normalize-bundle.cjs",
     "prepare": "npm run build",
     "test": "jest",
@@ -41,7 +41,7 @@
     "README.md",
     "LICENSE",
     "docs",
-    "prompts",
+    "skills",
     "menubar-app",
     "raycast",
     "scripts",
