@@ -9,3 +9,7 @@ config.toml.bak.*
 coverage/
 .vscode/
 .idea/
+
+# Local delivery and demo scratch files
+DELIVERY_SUMMARY.md
+test-demo.sh
