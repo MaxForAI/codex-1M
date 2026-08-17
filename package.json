@@ -1,19 +1,15 @@
 {
   "name": "codex-1m",
-  "version": "2.0.1",
-  "description": "Unlock Codex long-context mode with install, uninstall, on, off, and state commands",
+  "version": "3.0.0",
+  "description": "Enable long context for Codex with one command",
   "main": "dist/index.js",
   "bin": {
-    "1m": "./dist/cli.js",
-    "codex-1m": "./dist/cli.js",
-    "codex-1m-mcp": "./dist/mcp-server.js"
+    "codex-1m": "./dist/cli.js"
   },
   "scripts": {
-    "build": "node scripts/sync-plugin-version.cjs && tsc && npm run build:mcp-bundle",
-    "build:mcp-bundle": "esbuild src/mcp-server.ts --bundle --platform=node --format=cjs --target=node18 --outfile=mcp/server.cjs && node scripts/normalize-bundle.cjs",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc",
     "prepare": "npm run build",
     "test": "jest",
-    "test:e2e:real": "npm run build && node scripts/e2e-real-codex.cjs",
     "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
@@ -25,33 +21,21 @@
   "author": "MaxForAI",
   "license": "MIT",
   "dependencies": {
-    "@iarna/toml": "^2.2.3",
-    "@modelcontextprotocol/sdk": "^1.0.4",
-    "commander": "^12.0.0"
+    "@iarna/toml": "^2.2.3"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
     "@types/node": "^20.0.0",
     "jest": "^29.5.0",
     "ts-jest": "^29.1.0",
-    "typescript": "^5.0.0",
-    "esbuild": "^0.25.0"
+    "typescript": "^5.0.0"
   },
   "files": [
     "dist",
     "README.md",
     "LICENSE",
     "CHANGELOG.md",
-    "SECURITY.md",
-    "docs",
-    "skills",
-    "menubar-app",
-    "raycast",
-    "scripts",
-    ".codex-plugin",
-    ".mcp.json",
-    ".agents",
-    "mcp"
+    "SECURITY.md"
   ],
   "repository": {
     "type": "git",

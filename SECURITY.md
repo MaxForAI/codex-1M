@@ -24,7 +24,7 @@ reporter; please allow time for a fix and release before publishing details.
 
 ## Scope
 
-Reports about unsafe configuration writes, command execution, plugin or
-marketplace integrity, dependency vulnerabilities, and leakage of local data
-are in scope. Account access, model availability, and vulnerabilities in Codex
-itself should be reported to OpenAI through its official security channels.
+Reports about unsafe configuration writes, command execution, dependency
+vulnerabilities, and leakage of local data are in scope. Account access, model
+availability, and vulnerabilities in Codex itself should be reported to OpenAI
+through its official security channels.

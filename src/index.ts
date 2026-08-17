@@ -1,2 +1,8 @@
-export { ConfigManager, CodexConfig } from './config-manager';
-export { ConfigModifier, ConfigStatus } from './config-modifier';
+export { ConfigManager, CodexConfig, applyTomlPatches } from './config-manager';
+export {
+  ConfigConflictError,
+  installCodex1M,
+  uninstallCodex1M,
+  formatInstallResult,
+  formatUninstallResult,
+} from './installer';

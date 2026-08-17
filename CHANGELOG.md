@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-08-17
+
+### Breaking changes
+
+- Radically simplified codex-1M to a single-command installer: run the package
+  with no arguments to enable long context; `uninstall` is the only subcommand.
+- Removed the plugin, marketplace manifest, MCP server, Skill, profile controls,
+  multi-command lifecycle, menu bar app, Raycast script, prompts, and pristine
+  snapshot mechanism.
+- Existing 1.x/2.x users can run `uninstall` to safely restore snapshotted keys
+  and clean legacy plugin, marketplace, MCP, profile, prompt, pristine, and state
+  artifacts.
+
 ## [2.0.1] - 2026-08-17
 
 ### Changed
@@ -103,3 +116,4 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 [1.8.0]: https://github.com/MaxForAI/codex-1M/releases/tag/v1.8.0
 [2.0.0]: https://github.com/MaxForAI/codex-1M/releases/tag/v2.0.0
 [2.0.1]: https://github.com/MaxForAI/codex-1M/releases/tag/v2.0.1
+[3.0.0]: https://github.com/MaxForAI/codex-1M/releases/tag/v3.0.0

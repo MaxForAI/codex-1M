@@ -295,23 +295,6 @@ export class ConfigManager {
     this.runExclusive(() => this.atomicWriteUnlocked(filePath, content));
   }
 
-  ensurePristineSnapshot(): { path: string; created: boolean } {
-    return this.runExclusive(() => {
-      const pristinePath = this.getPristinePath();
-      if (fs.existsSync(pristinePath)) return { path: pristinePath, created: false };
-
-      const original = fs.readFileSync(this.configPath, 'utf8');
-      this.atomicWriteUnlocked(pristinePath, original);
-      fs.chmodSync(pristinePath, 0o400);
-      const pristineFd = fs.openSync(pristinePath, 'r');
-      try { fs.fsyncSync(pristineFd); } finally { fs.closeSync(pristineFd); }
-
-      // This is a read-only escape hatch, not an automatic restore source. A full
-      // restore could erase unrelated settings the user adds after installation.
-      return { path: pristinePath, created: true };
-    });
-  }
-
   removeFile(filePath: string): boolean {
     return this.runExclusive(() => {
       if (!fs.existsSync(filePath)) return false;
@@ -328,7 +311,4 @@ export class ConfigManager {
   getStatePath(): string { return path.join(this.codexHome, 'codex-1m-state.json'); }
   getPristinePath(): string { return path.join(this.codexHome, 'codex-1m-pristine.toml'); }
 
-  static getFixturesPath(): string {
-    return path.join(__dirname, '..', 'fixtures');
-  }
 }
