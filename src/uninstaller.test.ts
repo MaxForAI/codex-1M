@@ -37,7 +37,7 @@ describe('uninstall', () => {
         work: { model: 'gpt-5.6-terra' },
       },
       mcp_servers: {
-        'codex-1m': { command: 'npx', args: ['codex-1m-mcp'] },
+        'codex-1m': { command: process.execPath, args: ['/tmp/mcp-server.js'] },
         github: { command: 'github-mcp' },
       },
       plugins: {

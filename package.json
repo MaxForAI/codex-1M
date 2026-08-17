@@ -1,9 +1,10 @@
 {
   "name": "codex-1m",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Codex plugin for toggling a 1M-token context window",
   "main": "dist/index.js",
   "bin": {
+    "1m": "./dist/cli.js",
     "codex-1m": "./dist/cli.js",
     "codex-1m-mcp": "./dist/mcp-server.js"
   },

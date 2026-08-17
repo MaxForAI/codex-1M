@@ -15,11 +15,35 @@ describe('short command routing', () => {
     expect(state?.description).toContain('case-insensitive');
   });
 
-  it('keeps status and adds state as its CLI alias', () => {
-    const status = program.commands.find((command) => command.name() === 'status');
+  it('uses state as the canonical command and keeps status as a legacy alias', () => {
+    const state = program.commands.find((command) => command.name() === 'state');
 
-    expect(status).toBeDefined();
-    expect(status?.aliases()).toContain('state');
+    expect(state).toBeDefined();
+    expect(state?.aliases()).toContain('status');
+  });
+
+  it('declares both executable names and all five unified subcommands', () => {
+    const packageJson = JSON.parse(
+      fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8')
+    );
+
+    expect(packageJson.bin['1m']).toBe('./dist/cli.js');
+    expect(packageJson.bin['codex-1m']).toBe('./dist/cli.js');
+    expect(program.name()).toBe('1m');
+    expect(program.commands.map((command) => command.name())).toEqual(
+      expect.arrayContaining(['install', 'uninstall', 'on', 'off', 'state'])
+    );
+  });
+
+  it('documents one bootstrap and the unified command table without legacy npx commands', () => {
+    const readme = fs.readFileSync(path.join(process.cwd(), 'README.md'), 'utf8');
+
+    expect(readme).toContain('npm install --global github:MaxForAI/codex-1M');
+    expect(readme).toContain('| Install plugin + marketplace + MCP | `1m install` |');
+    expect(readme).toContain('| Enable | `1m on` | `1m on` | `1m on` |');
+    expect(readme).toContain('| Disable | `1m off` | `1m off` | `1m off` |');
+    expect(readme).toContain('| Show state | `1m state` | `1m state` | `1m state` |');
+    expect(readme).not.toMatch(/npx (?:codex-1m|github:MaxForAI\/codex-1M)/);
   });
 
   it('documents all case-insensitive chat mappings in the installed prompt', () => {

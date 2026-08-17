@@ -26,10 +26,11 @@ When enabled, sets Codex to use `gpt-5.6-sol` with:
 - Inputs above 272K tokens may cost more.
 - `gpt-5.6-sol` access depends on account and workspace permissions.
 
-**Alternative Methods:**
-- Chat: `1M on` / `1M off` / `1M state` (case-insensitive)
-- CLI: `npx codex-1m on/off/state`
-- Profile: `codex --profile 1m`
-- MCP tools: `toggle_1m_context` / `context_status`
+**Unified commands:**
+- Terminal shell: `1m on` / `1m off` / `1m state`
+- Codex CLI or GUI conversation: `1m on` / `1m off` / `1m state`
+
+Conversation matching is case-insensitive. The underlying MCP tools are
+`toggle_1m_context` and `context_status`.
 
 See the repository README and `docs/gui-integration.md` for details.

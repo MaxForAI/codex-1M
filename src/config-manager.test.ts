@@ -233,8 +233,8 @@ describe('ConfigModifier', () => {
       const config = manager.readConfig();
       expect(config.mcp_servers?.['codex-1m']).toBeDefined();
       expect(config.mcp_servers?.['codex-1m']).toEqual({
-        command: 'npx',
-        args: ['codex-1m-mcp'],
+        command: process.execPath,
+        args: [path.join(__dirname, 'mcp-server.js')],
         description: 'Toggle 1M context window from within Codex'
       });
     });

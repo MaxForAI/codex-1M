@@ -26,7 +26,7 @@ const ADVERTISED_MCP_TOOLS = MCP_TOOLS.map((tool) => ({
 const server = new Server(
   {
     name: 'codex-1m',
-    version: '1.2.0',
+    version: '1.4.0',
   },
   {
     capabilities: {

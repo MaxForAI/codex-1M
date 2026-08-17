@@ -64,13 +64,13 @@ about undocumented internal contracts:
 ### 1. Desktop slash command plus MCP tool — lowest friction
 
 Files: `prompts/1m-toggle.md`, `src/mcp-server.ts`, and the user's existing MCP
-registration created by `codex-1m install` or `codex-1m on`.
+registration created by `1m install` or terminal `1m on`.
 
-Run `npx codex-1m install` (or copy the file to
-`~/.codex/prompts/1m-toggle.md`), restart the desktop app, then type
-`/prompts:1m-toggle ACTION=status`, `ACTION=on`, or `ACTION=off`. The prompt
-instructs Codex to call `context_status` or `toggle_1m_context`. A new skill
-package is preferable if custom prompts are removed in a future release.
+Run `1m install`, restart the desktop app, then type `1m state`, `1m on`, or
+`1m off` in the conversation. Matching is case-insensitive. The shared MCP
+descriptions instruct Codex to call `context_status` or
+`toggle_1m_context`; the prompt file remains a compatibility aid if custom
+prompts are available on the installed build.
 
 User experience: visible/searchable in the composer slash list, but not always
 on screen. The tool result appears in chat. Changing the file does not resize

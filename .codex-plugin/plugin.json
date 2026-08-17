@@ -1,6 +1,6 @@
 {
   "name": "codex-1m",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Use 1M on, 1M off, or 1M state to control a 1,000,000-token Codex context window.",
   "author": {
     "name": "MaxForAI",

@@ -1,4 +1,5 @@
 import { ConfigManager, CodexConfig } from './config-manager';
+import * as path from 'path';
 
 export interface ConfigStatus {
   model: string;
@@ -86,7 +87,10 @@ export class ConfigModifier {
     return status;
   }
 
-  registerMCPServer(): string {
+  registerMCPServer(
+    command: string = process.execPath,
+    args: string[] = [path.join(__dirname, 'mcp-server.js')]
+  ): string {
     const config = this.configManager.readConfig();
 
     if (!config.mcp_servers) {
@@ -94,8 +98,8 @@ export class ConfigModifier {
     }
 
     config.mcp_servers['codex-1m'] = {
-      command: 'npx',
-      args: ['codex-1m-mcp'],
+      command,
+      args,
       description: 'Toggle 1M context window from within Codex'
     };
 

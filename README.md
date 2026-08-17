@@ -1,73 +1,92 @@
 # codex-1M
 
-Install the Codex plugin from GitHub with one command:
+Use one short command family to install, remove, enable, disable, and inspect
+Codex's 1M-token context support.
 
-## Install (one command)
+## Bootstrap the `1m` command once
 
-```bash
-npx --yes github:MaxForAI/codex-1M install
-```
-
-Install and uninstall are both one-command operations, so codex-1M can be
-added or removed at any time.
-
-## Uninstall (one command)
+`codex-1m` is not currently published in the npm registry. Install the GitHub
+repository globally once so npm creates the persistent `1m` executable:
 
 ```bash
-npx codex-1m uninstall
+npm install --global github:MaxForAI/codex-1M
 ```
 
-The command creates `~/.codex/config.toml.bak.<timestamp>` before changing a
-managed installation, then:
+This bootstrap only puts the command on `PATH`; it does not install the Codex
+plugin. Run the regular install command next:
 
-- removes the top-level `model`, `model_context_window`, and
-  `model_auto_compact_token_limit` only when all three match the exact 1M
-  configuration written by codex-1M;
-- removes `[profiles.1m]` and `[mcp_servers.codex-1m]` with a TOML parser while
-  preserving every unrelated setting, profile, and MCP server;
-- removes only the recognized codex-1M prompt files (`1m.md` and
-  `1m-toggle.md`) from `~/.codex/prompts/`;
-- runs `codex plugin remove codex-1m@codex-1m --json`, then
-  `codex plugin marketplace remove codex-1m --json`, after checking that each
-  entry exists.
-
-Uninstall is idempotent: running it again reports that the managed entries are
-already absent. If the installed Codex version does not expose the plugin
-remove commands, configuration and prompt cleanup still completes and the
-summary tells you to enter `/plugins`, open codex-1m, and choose **Uninstall
-plugin**. Reinstall at any time with the Install command above.
-
-## Usage (in a Codex conversation)
-
-Start a **new** Codex conversation after installation, then enter one of these
-short commands:
-
-```text
-1M on
-1M off
-1M state
+```bash
+1m install
 ```
 
-Commands are case-insensitive (`1m on`, `1M ON`, and equivalent casing work):
+Do not use `npx 1m`: `1m` is also the name of an unrelated npm package, and
+`npx` package resolution is not the codex-1M command. If `command -v 1m`
+already points to another executable, resolve that PATH conflict before the
+bootstrap.
 
-- `1M on` calls `toggle_1m_context` with `enable=true`.
-- `1M off` calls `toggle_1m_context` with `enable=false`.
-- `1M state` calls `context_status`.
+The package declares both `1m` and the backward-compatible `codex-1m` bin name
+for the same `dist/cli.js` entry point. `1m` is the only recommended command.
 
-After `1M on` or `1M off`, start one more new conversation for the new context
-configuration to take effect.
+## Unified command table
 
-## What it configures
+Conversation commands are case-insensitive, so `1m on`, `1M ON`, and equivalent
+casing work. Shell executable names are case-sensitive; use lowercase `1m` in a
+terminal.
 
-`toggle_1m_context` writes the following settings either to `[profiles.1m]` or,
-when called with `global: true`, to the top level of `~/.codex/config.toml`:
+| Operation | Terminal shell | Codex CLI conversation | Codex GUI conversation |
+| --- | --- | --- | --- |
+| Install plugin + marketplace + MCP | `1m install` | — | — |
+| Uninstall managed integration | `1m uninstall` | — | — |
+| Enable | `1m on` | `1m on` | `1m on` |
+| Disable | `1m off` | `1m off` | `1m off` |
+| Show state | `1m state` | `1m state` | `1m state` |
+
+`1m install` registers the `MaxForAI/codex-1M` marketplace and installs
+`codex-1m@codex-1m`. The plugin manifest loads the bundled MCP server, which
+advertises `toggle_1m_context` and `context_status` for the three conversation
+commands.
+
+OpenAI's [Codex MCP documentation](https://developers.openai.com/codex/mcp)
+states that the ChatGPT desktop app and Codex CLI share MCP configuration. The
+same plugin MCP manifest and case-insensitive tool descriptions therefore serve
+both conversation surfaces. Start a new CLI session or GUI conversation after
+installing or changing state so the server and configuration are reloaded.
+
+## Uninstall
+
+```bash
+1m uninstall
+```
+
+The command creates `config.toml.bak.<timestamp>` before changing a managed
+configuration, then:
+
+- removes the exact managed top-level `model`, `model_context_window`, and
+  `model_auto_compact_token_limit` triple only when all values match;
+- removes `[profiles.1m]` and `[mcp_servers.codex-1m]` while preserving unrelated
+  TOML settings;
+- removes only recognized codex-1M prompt files;
+- removes `codex-1m@codex-1m` and its verified `codex-1m` marketplace entry.
+
+Uninstall is idempotent. It leaves the global `1m` bootstrap command available,
+so the integration can be restored later with `1m install`. If the installed
+Codex build does not expose plugin removal, local configuration cleanup still
+finishes and the command prints the remaining manual action.
+
+## What `on` configures
+
+By default, `1m on` creates the opt-in `[profiles.1m]` profile and registers the
+MCP server with an absolute Node/script path that works from terminal and GUI
+processes without relying on npm's PATH lookup:
 
 ```toml
+[profiles.1m]
 model = "gpt-5.6-sol"
 model_context_window = 1000000
 model_auto_compact_token_limit = 900000
 ```
 
+Use `1m on --global` only when a top-level configuration is explicitly desired.
 Every write creates a timestamped backup and uses a TOML parser so unrelated
 configuration, MCP servers, and profiles are preserved.
 
@@ -88,103 +107,18 @@ configuration, MCP servers, and profiles are preserved.
 
 ```text
 codex-1M/
-├── .codex-plugin/
-│   └── plugin.json                 # required plugin manifest
-├── .agents/plugins/
-│   └── marketplace.json            # GitHub/local marketplace catalog
-├── .mcp.json                        # bundled MCP server definition
-├── mcp/
-│   └── server.cjs                   # dependency-bundled stdio server
-├── src/
-│   ├── cli.ts
-│   ├── config-manager.ts
-│   └── mcp-server.ts
+├── .codex-plugin/plugin.json
+├── .agents/plugins/marketplace.json
+├── .mcp.json
+├── mcp/server.cjs
+├── prompts/
+├── src/cli.ts
 └── package.json
 ```
 
-`.codex-plugin/plugin.json` is the plugin entry point. Its
-`"mcpServers": "./.mcp.json"` field points to the companion MCP configuration.
-`.mcp.json` starts `node ./mcp/server.cjs` from the installed plugin root; that
-server advertises `toggle_1m_context` and `context_status` over stdio.
-
-The manifest uses the standard fields `name`, `version`, `description`,
-`author`, `homepage`, `repository`, `license`, `keywords`, `mcpServers`, and
-`interface`. The `interface` block supplies the install UI's display name,
-descriptions, developer, category, capabilities, starter prompts, website, and
-brand color.
-
-## Exact Codex plugin commands
-
-The current Codex CLI does **not** provide
-`codex plugin install <github-url>`, and `codex plugin add` does not accept a
-GitHub URL, `github:owner/repo`, or an arbitrary plugin directory. It installs a
-plugin from a configured marketplace.
-
-The official two-step form is:
-
-```bash
-codex plugin marketplace add MaxForAI/codex-1M
-codex plugin add codex-1m@codex-1m
-```
-
-`codex plugin marketplace add` accepts GitHub shorthand (`owner/repo` or
-`owner/repo@ref`), Git URLs, SSH URLs, and local marketplace-root paths. The
-one-command installer at the top is a small wrapper around those two commands;
-the `github:` prefix belongs to npm/npx package resolution, not to Codex's
-plugin CLI.
-
-Codex discovers this repository's catalog at
-`.agents/plugins/marketplace.json`, installs the plugin into its plugin cache,
-and records installed/enabled state in Codex configuration. For local
-development, the equivalent marketplace registration is:
-
-```bash
-codex plugin marketplace add /absolute/path/to/codex-1m
-codex plugin add codex-1m@codex-1m
-```
-
-Start a new Codex CLI session or desktop conversation after installing so the
-bundled MCP tools are loaded.
-
-The corresponding verified removal commands are:
-
-```bash
-codex plugin remove codex-1m@codex-1m
-codex plugin marketplace remove codex-1m
-```
-
-`npx codex-1m uninstall` checks the installed/plugin marketplace lists before
-calling them, so an already-uninstalled state is not treated as an error.
-
-## Existing CLI
-
-The original CLI remains available for direct, non-plugin use:
-
-```bash
-npx github:MaxForAI/codex-1M on             # create/update profile 1m
-npx github:MaxForAI/codex-1M off            # remove profile 1m
-npx github:MaxForAI/codex-1M state          # show global state
-npx github:MaxForAI/codex-1M status         # legacy alias; still supported
-npx github:MaxForAI/codex-1M on --global    # enable globally
-npx github:MaxForAI/codex-1M off --global   # disable globally
-npx codex-1m uninstall                      # remove config, prompts, and plugin
-```
-
-The profile mode is opt-in: launch Codex with `codex --profile 1m`. The plugin
-defaults to profile mode unless the MCP call explicitly sets `global: true`.
-
-## GUI-friendly alternatives
-
-Codex does not currently document an API for registering a persistent custom
-button in its toolbar, Settings, model picker, or reasoning picker. This
-repository also includes:
-
-- `prompts/1m-toggle.md`: a compatibility slash prompt;
-- `menubar-app/Codex1MToggle/`: a native SwiftUI menu bar switch;
-- `raycast/Codex-1M-Toggle.swift`: a Raycast Script Command;
-- `scripts/codex-1m-action`: the shared wrapper used by those interfaces.
-
-See [the GUI evidence and implementation guide](docs/gui-integration.md).
+`.codex-plugin/plugin.json` points to `.mcp.json`, which starts the
+dependency-bundled `mcp/server.cjs` from the installed plugin root. Codex does
+not need to run npm lifecycle scripts inside the plugin cache.
 
 ## Development and verification
 
@@ -194,9 +128,11 @@ npm run build
 npm test
 ```
 
-`npm run build` produces the checked-in, dependency-bundled
-`mcp/server.cjs`. This matters because Codex loads bundled plugins without
-running npm lifecycle scripts inside the installed plugin directory.
+For a manual Codex CLI routing check, use a disposable `CODEX_HOME`, install the
+local marketplace with `1m install`, start a new interactive `codex` session,
+and enter `1m state`, `1M on`, then `1m off`. Confirm that the transcript shows
+calls to `context_status` and `toggle_1m_context`. Never point this check at a
+real configuration you do not intend to change.
 
 ## License
 

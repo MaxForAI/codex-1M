@@ -173,9 +173,9 @@ function removeCodexPlugin(): PluginRemovalResult {
 }
 
 program
-  .name('codex-1m')
+  .name('1m')
   .description('Control Codex\'s 1M-token context with on, off, or state')
-  .version('1.3.0');
+  .version('1.4.0');
 
 program
   .command('on')
@@ -220,9 +220,9 @@ program
   });
 
 program
-  .command('status')
-  .alias('state')
-  .description('Show current 1M context state (status remains supported)')
+  .command('state')
+  .alias('status')
+  .description('Show current 1M context state (status is a legacy alias)')
   .action(async () => {
     try {
       const configManager = new ConfigManager();
@@ -265,7 +265,8 @@ program
         '--json',
       ]);
 
-      console.log('\nInstalled. Start a new Codex conversation, then use: 1M on, 1M off, or 1M state.');
+      console.log('\nInstalled marketplace, plugin, and bundled MCP server.');
+      console.log('Start a new Codex session, then use: 1m on, 1m off, or 1m state.');
     } catch (error) {
       console.error('Error during installation:', error);
       process.exit(1);
@@ -280,8 +281,8 @@ program
       const local = uninstallLocalArtifacts();
       const plugin = removeCodexPlugin();
 
-      console.log('codex-1m uninstall complete');
-      console.log('===========================');
+      console.log('1m uninstall complete');
+      console.log('=====================');
       console.log(
         `Configuration: ${
           local.config.changed
@@ -311,7 +312,7 @@ program
         );
       }
       console.log('Unrelated Codex configuration and prompt files were preserved.');
-      console.log('You can reinstall at any time with: npx --yes github:MaxForAI/codex-1M install');
+      console.log('You can reinstall at any time with: 1m install');
     } catch (error) {
       console.error('Error during uninstall:', error);
       process.exit(1);
@@ -321,7 +322,7 @@ program
 if (require.main === module) {
   // Default to 'on' if no command specified
   if (process.argv.length === 2 || (process.argv.length === 3 && process.argv[2] === 'on')) {
-    program.parse(['node', 'codex-1m', 'on']);
+    program.parse(['node', '1m', 'on']);
   } else {
     program.parse();
   }
