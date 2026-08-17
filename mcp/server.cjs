@@ -17530,13 +17530,14 @@ function findInlineComment(value) {
   return -1;
 }
 function scalarToml(key, value) {
+  if (typeof value === "number") return String(value);
   const line = TOML.stringify({ [key]: value }).trim();
   return line.slice(line.indexOf("=") + 1).trim();
 }
 function patchTopLevel(content, key, value) {
   const newline = content.includes("\r\n") ? "\r\n" : "\n";
   const hadFinalNewline = content.endsWith("\n");
-  const lines = content.split(/\r?\n/);
+  const lines = content === "" ? [] : content.split(/\r?\n/);
   if (hadFinalNewline) lines.pop();
   const firstTable = lines.findIndex((line) => parseHeaderPath(line) !== null);
   const limit = firstTable === -1 ? lines.length : firstTable;

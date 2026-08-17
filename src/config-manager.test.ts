@@ -39,6 +39,11 @@ describe('Codex configuration safety', () => {
       model_context_window: 1000000,
       model_auto_compact_token_limit: 900000,
     });
+    expect(fs.readFileSync(manager.getProfilePath(), 'utf8')).toBe(
+      'model = "gpt-5.6-sol"\n' +
+      'model_context_window = 1000000\n' +
+      'model_auto_compact_token_limit = 900000\n'
+    );
   });
 
   it('respects CODEX_HOME for the V2 profile path', () => {
