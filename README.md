@@ -1,62 +1,61 @@
 # codex-1M
 
-Use one short command family to install, remove, enable, disable, and inspect
-Codex's 1M-token context support.
+Install, remove, enable, disable, and inspect Codex's 1M-token context support
+by typing one short command directly in a Codex conversation.
 
-## Bootstrap the `1m` command once
+## In Codex conversation
+
+After the one-time terminal bootstrap below, type any of these commands into a
+Codex CLI or GUI conversation. Matching is case-insensitive.
+
+| Conversation command | MCP tool call | Result |
+| --- | --- | --- |
+| `1m install` | `install_1m` | Install or repair marketplace, plugin, MCP registration, and prompts |
+| `1m uninstall` | `uninstall_1m` | Fully remove managed config, prompts, plugin, marketplace, and MCP registration |
+| `1m on` | `toggle_1m_context(enable=true)` | Enable the existing opt-in `1m` profile behavior |
+| `1m off` | `toggle_1m_context(enable=false)` | Disable the existing opt-in `1m` profile behavior |
+| `1m state` | `context_status` | Report the current context configuration |
+
+`1M INSTALL`, `1m UnInstall`, and other casing variants map to the same tools.
+Start a new Codex session after installing, uninstalling, or changing context
+configuration so the MCP/config state is reloaded.
+
+## First install: terminal bootstrap
 
 `codex-1m` is not currently published in the npm registry. Install the GitHub
-repository globally once so npm creates the persistent `1m` executable:
+repository globally once, then run the installer in a terminal:
 
 ```bash
-npm install --global github:MaxForAI/codex-1M
+npm i -g github:MaxForAI/codex-1M
+codex-1m install
 ```
 
-This bootstrap only puts the command on `PATH`; it does not install the Codex
-plugin. Run the regular install command next:
-
-```bash
-1m install
-```
+This two-step bootstrap is unavoidable: before the MCP server is registered,
+a Codex conversation has no `install_1m` tool to call. The second command adds
+the `MaxForAI/codex-1M` marketplace, installs `codex-1m@codex-1m`, registers the
+bundled MCP server, and writes the managed prompt files. After starting a new
+Codex session, `1m install` in conversation can repair that integration.
 
 Do not use `npx 1m`: `1m` is also the name of an unrelated npm package, and
 `npx` package resolution is not the codex-1M command. If `command -v 1m`
 already points to another executable, resolve that PATH conflict before the
 bootstrap.
 
-The package declares both `1m` and the backward-compatible `codex-1m` bin name
-for the same `dist/cli.js` entry point. `1m` is the only recommended command.
-
-## Unified command table
-
-Conversation commands are case-insensitive, so `1m on`, `1M ON`, and equivalent
-casing work. Shell executable names are case-sensitive; use lowercase `1m` in a
-terminal.
-
-| Operation | Terminal shell | Codex CLI conversation | Codex GUI conversation |
-| --- | --- | --- | --- |
-| Install plugin + marketplace + MCP | `1m install` | — | — |
-| Uninstall managed integration | `1m uninstall` | — | — |
-| Enable | `1m on` | `1m on` | `1m on` |
-| Disable | `1m off` | `1m off` | `1m off` |
-| Show state | `1m state` | `1m state` | `1m state` |
-
-`1m install` registers the `MaxForAI/codex-1M` marketplace and installs
-`codex-1m@codex-1m`. The plugin manifest loads the bundled MCP server, which
-advertises `toggle_1m_context` and `context_status` for the three conversation
-commands.
+The package also declares the terminal alias `1m` for bootstrap and recovery,
+so `1m install` and `1m uninstall` work in a shell when that alias has no PATH
+conflict. The longer `codex-1m` name is the documented recovery command because
+it is unambiguous. Terminal commands are a bootstrap/fallback surface; the
+normal product surface is the five-command conversation table above.
 
 OpenAI's [Codex MCP documentation](https://developers.openai.com/codex/mcp)
 states that the ChatGPT desktop app and Codex CLI share MCP configuration. The
 same plugin MCP manifest and case-insensitive tool descriptions therefore serve
-both conversation surfaces. Start a new CLI session or GUI conversation after
-installing or changing state so the server and configuration are reloaded.
+both conversation surfaces.
 
 ## Uninstall
 
-```bash
-1m uninstall
-```
+In a Codex conversation, type `1m uninstall`. The tool invocation finishes
+before the running MCP process exits, but it removes its own future registration.
 
 The command creates `config.toml.bak.<timestamp>` before changing a managed
 configuration, then:
@@ -68,10 +67,18 @@ configuration, then:
 - removes only recognized codex-1M prompt files;
 - removes `codex-1m@codex-1m` and its verified `codex-1m` marketplace entry.
 
-Uninstall is idempotent. It leaves the global `1m` bootstrap command available,
-so the integration can be restored later with `1m install`. If the installed
-Codex build does not expose plugin removal, local configuration cleanup still
-finishes and the command prints the remaining manual action.
+Uninstall is idempotent. Because it fully removes the MCP server and plugin,
+`1m install` cannot work in a later conversation: there is no tool left to
+receive it. Reinstall from a terminal instead:
+
+```bash
+codex-1m install
+# or: 1m install
+```
+
+The npm global bootstrap remains installed unless it is separately removed.
+If the installed Codex build does not expose plugin removal, local configuration
+cleanup still finishes and the result prints the remaining manual action.
 
 ## What `on` configures
 
@@ -128,11 +135,27 @@ npm run build
 npm test
 ```
 
-For a manual Codex CLI routing check, use a disposable `CODEX_HOME`, install the
-local marketplace with `1m install`, start a new interactive `codex` session,
-and enter `1m state`, `1M on`, then `1m off`. Confirm that the transcript shows
-calls to `context_status` and `toggle_1m_context`. Never point this check at a
-real configuration you do not intend to change.
+For a real natural-language routing check, use a disposable `CODEX_HOME` with a
+logged-in Codex CLI:
+
+```bash
+export CODEX_HOME="$(mktemp -d)"
+codex login
+codex-1m install
+codex
+```
+
+In that interactive session, enter these one at a time: `1M install`, `1m
+state`, `1M on`, `1m off`, and `1m uninstall`. Confirm the transcript calls
+`install_1m`, `context_status`,
+`toggle_1m_context` with `enable=true`, `toggle_1m_context` with `enable=false`,
+and `uninstall_1m`, respectively. After uninstall, leave the session and run
+`codex-1m install` in the terminal to restore the isolated environment.
+
+An isolated environment without a Codex login can still verify MCP `tools/list`
+and direct `tools/call`, but it cannot prove the model's natural-language
+routing. Never point either check at a real configuration you do not intend to
+change.
 
 ## License
 

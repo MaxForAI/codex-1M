@@ -17,12 +17,13 @@ export function getCodexHome(): string {
   return process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
 }
 
-function isCodex1MPrompt(content: string): boolean {
+export function isCodex1MPrompt(content: string): boolean {
   const hasKnownHeading =
     content.includes('# Codex 1M Commands') ||
     content.includes('# 1M Context Toggle');
   const hasManagedInstructions =
     content.includes('toggle_1m_context') ||
+    content.includes('install_1m') ||
     content.includes('MCP tools');
   return hasKnownHeading && hasManagedInstructions;
 }

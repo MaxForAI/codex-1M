@@ -9,8 +9,18 @@ import {
 import { ConfigManager } from './config-manager';
 import { ConfigModifier } from './config-modifier';
 import { MCP_TOOLS } from './mcp-tools';
+import {
+  formatInstallResult,
+  formatUninstallResult,
+  installCodex1M,
+  uninstallCodex1M,
+} from './integration';
 
 const TOOL_DESCRIPTIONS: Record<string, string> = {
+  install_1m:
+    "Install or repair codex-1M when the user types '1m install'. Registers the MCP server, adds the MaxForAI/codex-1M marketplace, installs the plugin, and writes managed prompts. Matching is case-insensitive.",
+  uninstall_1m:
+    "Fully uninstall codex-1M when the user types '1m uninstall'. Removes managed configuration, prompts, plugin, marketplace, and this MCP registration. Matching is case-insensitive; reinstall afterward requires the terminal bootstrap command.",
   toggle_1m_context:
     "Toggle Codex 1M-token context. Call with enable=true when the user types '1M on', enable=false when the user types '1M off'. Matching is case-insensitive.",
   context_status:
@@ -26,7 +36,7 @@ const ADVERTISED_MCP_TOOLS = MCP_TOOLS.map((tool) => ({
 const server = new Server(
   {
     name: 'codex-1m',
-    version: '1.4.0',
+    version: '1.5.0',
   },
   {
     capabilities: {
@@ -51,6 +61,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const modifier = new ConfigModifier(configManager);
 
     switch (name) {
+      case 'install_1m': {
+        return {
+          content: [{
+            type: 'text',
+            text: formatInstallResult(installCodex1M())
+          }]
+        };
+      }
+
+      case 'uninstall_1m': {
+        return {
+          content: [{
+            type: 'text',
+            text: formatUninstallResult(uninstallCodex1M())
+          }]
+        };
+      }
+
       case 'toggle_1m_context': {
         const enable = (args?.enable as boolean) || false;
         const global = (args?.global as boolean) || false;

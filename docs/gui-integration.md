@@ -66,11 +66,14 @@ about undocumented internal contracts:
 Files: `prompts/1m-toggle.md`, `src/mcp-server.ts`, and the user's existing MCP
 registration created by `1m install` or terminal `1m on`.
 
-Run `1m install`, restart the desktop app, then type `1m state`, `1m on`, or
-`1m off` in the conversation. Matching is case-insensitive. The shared MCP
-descriptions instruct Codex to call `context_status` or
-`toggle_1m_context`; the prompt file remains a compatibility aid if custom
-prompts are available on the installed build.
+After the terminal bootstrap, restart the desktop app, then type `1m install`,
+`1m uninstall`, `1m state`, `1m on`, or `1m off` in the conversation. Matching
+is case-insensitive. The shared MCP descriptions instruct Codex to call
+`install_1m`, `uninstall_1m`, `context_status`, or `toggle_1m_context`; the
+prompt file remains a compatibility aid if custom prompts are available on the
+installed build. First install still requires a terminal because the MCP server
+does not exist yet. A full uninstall removes that server, so reinstall afterward
+with `codex-1m install` in a terminal.
 
 User experience: visible/searchable in the composer slash list, but not always
 on screen. The tool result appears in chat. Changing the file does not resize

@@ -2981,7 +2981,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve.call(this, root, ref);
+      let _sch = resolve2.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
@@ -3008,7 +3008,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve(root, ref) {
+    function resolve2(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3226,8 +3226,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path3) {
-      let input = path3;
+    function removeDotSegments(path5) {
+      let input = path5;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3479,8 +3479,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path3, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path3 && path3 !== "/" ? path3 : void 0;
+        const [path5, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path5 && path5 !== "/" ? path5 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -3639,7 +3639,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve(baseURI, relativeURI, options) {
+    function resolve2(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const { parsed: baseParsed, malformedAuthorityOrPort: baseMalformed } = parseWithStatus(baseURI, schemelessOptions);
       const { parsed: relativeParsed, malformedAuthorityOrPort: relativeMalformed } = parseWithStatus(relativeURI, schemelessOptions);
@@ -3923,7 +3923,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve,
+      resolve: resolve2,
       resolveComponent,
       equal,
       serialize,
@@ -6899,12 +6899,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs2, exportName) {
+    function addFormats(ajv, list, fs4, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs2[f]);
+        ajv.addFormat(f, fs4[f]);
     }
     module2.exports = exports2 = formatsPlugin;
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -8525,20 +8525,20 @@ var require_parse_async = __commonJS({
       const index = 0;
       const blocksize = opts.blocksize || 40960;
       const parser = new TOMLParser();
-      return new Promise((resolve, reject) => {
-        setImmediate(parseAsyncNext, index, blocksize, resolve, reject);
+      return new Promise((resolve2, reject) => {
+        setImmediate(parseAsyncNext, index, blocksize, resolve2, reject);
       });
-      function parseAsyncNext(index2, blocksize2, resolve, reject) {
+      function parseAsyncNext(index2, blocksize2, resolve2, reject) {
         if (index2 >= str.length) {
           try {
-            return resolve(parser.finish());
+            return resolve2(parser.finish());
           } catch (err) {
             return reject(prettyError(err, str));
           }
         }
         try {
           parser.parse(str.slice(index2, index2 + blocksize2));
-          setImmediate(parseAsyncNext, index2 + blocksize2, blocksize2, resolve, reject);
+          setImmediate(parseAsyncNext, index2 + blocksize2, blocksize2, resolve2, reject);
         } catch (err) {
           reject(prettyError(err, str));
         }
@@ -8564,7 +8564,7 @@ var require_parse_stream = __commonJS({
     function parseReadable(stm) {
       const parser = new TOMLParser();
       stm.setEncoding("utf8");
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve2, reject) => {
         let readable;
         let ended = false;
         let errored = false;
@@ -8572,7 +8572,7 @@ var require_parse_stream = __commonJS({
           ended = true;
           if (readable) return;
           try {
-            resolve(parser.finish());
+            resolve2(parser.finish());
           } catch (err) {
             reject(err);
           }
@@ -9148,10 +9148,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path3) {
-  if (!path3)
+function getElementAtPath(obj, path5) {
+  if (!path5)
     return obj;
-  return path3.reduce((acc, key) => acc?.[key], obj);
+  return path5.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -9560,11 +9560,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path3, issues) {
+function prefixIssues(path5, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path3);
+    iss.path.unshift(path5);
     return iss;
   });
 }
@@ -9711,16 +9711,16 @@ function flattenError(error2, mapper = (issue2) => issue2.message) {
 }
 function formatError(error2, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error3, path3 = []) => {
+  const processError = (error3, path5 = []) => {
     for (const issue2 of error3.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path3, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path5, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path3, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path5, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path3, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path5, ...issue2.path]);
       } else {
-        const fullpath = [...path3, ...issue2.path];
+        const fullpath = [...path5, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -16231,7 +16231,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        await new Promise((resolve2) => setTimeout(resolve2, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -16248,7 +16248,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve2, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -16326,7 +16326,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve(parseResult.data);
+            resolve2(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -16587,12 +16587,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve2, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve, interval);
+      const timeoutId = setTimeout(resolve2, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -17468,12 +17468,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve) => {
+    return new Promise((resolve2) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve();
+        resolve2();
       } else {
-        this._stdout.once("drain", resolve);
+        this._stdout.once("drain", resolve2);
       }
     });
   }
@@ -17659,6 +17659,24 @@ var ConfigModifier = class {
 // src/mcp-tools.ts
 var MCP_TOOLS = [
   {
+    name: "install_1m",
+    description: "Install or repair codex-1M when the user types '1m install'. Registers the MCP server, adds the MaxForAI/codex-1M marketplace, installs the plugin, and writes managed prompts. Matching is case-insensitive.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: "uninstall_1m",
+    description: "Fully uninstall codex-1M when the user types '1m uninstall'. Removes managed configuration, prompts, plugin, marketplace, and this MCP registration. Matching is case-insensitive; reinstall afterward requires the terminal bootstrap command.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+  {
     name: "toggle_1m_context",
     description: "Toggle Codex 1M-token context. Call with enable=true when the user types '1M on', enable=false when the user types '1M off'. Matching is case-insensitive.",
     inputSchema: {
@@ -17687,8 +17705,251 @@ var MCP_TOOLS = [
   }
 ];
 
+// src/integration.ts
+var import_child_process = require("child_process");
+var fs3 = __toESM(require("fs"));
+var path4 = __toESM(require("path"));
+
+// src/uninstaller.ts
+var fs2 = __toESM(require("fs"));
+var os2 = __toESM(require("os"));
+var path3 = __toESM(require("path"));
+var MANAGED_PROMPT_FILES = ["1m.md", "1m-toggle.md"];
+function getCodexHome() {
+  return process.env.CODEX_HOME || path3.join(os2.homedir(), ".codex");
+}
+function isCodex1MPrompt(content) {
+  const hasKnownHeading = content.includes("# Codex 1M Commands") || content.includes("# 1M Context Toggle");
+  const hasManagedInstructions = content.includes("toggle_1m_context") || content.includes("install_1m") || content.includes("MCP tools");
+  return hasKnownHeading && hasManagedInstructions;
+}
+function removeManagedPrompts(codexHome = getCodexHome()) {
+  const promptDir = path3.join(codexHome, "prompts");
+  const removed = [];
+  const preserved = [];
+  for (const fileName of MANAGED_PROMPT_FILES) {
+    const promptPath = path3.join(promptDir, fileName);
+    if (!fs2.existsSync(promptPath)) continue;
+    const content = fs2.readFileSync(promptPath, "utf8");
+    if (isCodex1MPrompt(content)) {
+      fs2.unlinkSync(promptPath);
+      removed.push(promptPath);
+    } else {
+      preserved.push(promptPath);
+    }
+  }
+  return { removed, preserved };
+}
+function uninstallLocalArtifacts(configManager = new ConfigManager(), codexHome = getCodexHome()) {
+  const modifier = new ConfigModifier(configManager);
+  const needsBackup = modifier.hasUninstallArtifacts();
+  const backupPath = needsBackup ? configManager.createBackup() : null;
+  const config2 = modifier.uninstallConfiguration();
+  const prompts = removeManagedPrompts(codexHome);
+  return {
+    config: config2,
+    backupPath,
+    removedPrompts: prompts.removed,
+    preservedPrompts: prompts.preserved
+  };
+}
+
+// src/integration.ts
+var GITHUB_MARKETPLACE = "MaxForAI/codex-1M";
+var MARKETPLACE_NAME = "codex-1m";
+var PLUGIN_ID = `${MARKETPLACE_NAME}@${MARKETPLACE_NAME}`;
+function resolveCodexBinary() {
+  if (process.env.CODEX_BIN) return process.env.CODEX_BIN;
+  const pathProbe = (0, import_child_process.spawnSync)(
+    process.platform === "win32" ? "where" : "which",
+    ["codex"],
+    { encoding: "utf8" }
+  );
+  const fromPath = pathProbe.stdout?.trim().split(/\r?\n/)[0];
+  if (pathProbe.status === 0 && fromPath) return fromPath;
+  const macAppBinary = "/Applications/ChatGPT.app/Contents/Resources/codex";
+  if (process.platform === "darwin" && fs3.existsSync(macAppBinary)) {
+    return macAppBinary;
+  }
+  throw new Error(
+    "Codex CLI was not found. Install Codex or set CODEX_BIN to the codex executable."
+  );
+}
+function createCodexRunner(codexBinary = resolveCodexBinary()) {
+  return {
+    run(args) {
+      const result = (0, import_child_process.spawnSync)(codexBinary, args, {
+        encoding: "utf8",
+        env: process.env
+      });
+      if (result.error) throw result.error;
+      if (result.status !== 0) {
+        const detail = result.stderr?.trim() || result.stdout?.trim();
+        throw new Error(
+          `codex ${args.join(" ")} exited with status ${result.status}${detail ? `: ${detail}` : ""}`
+        );
+      }
+      return JSON.parse(result.stdout || "{}");
+    }
+  };
+}
+function isPluginInstalled(pluginList) {
+  return Array.isArray(pluginList?.installed) && pluginList.installed.some((plugin) => plugin.pluginId === PLUGIN_ID);
+}
+function findMarketplace(marketplaceList) {
+  return Array.isArray(marketplaceList?.marketplaces) ? marketplaceList.marketplaces.find((marketplace) => marketplace.name === MARKETPLACE_NAME) : void 0;
+}
+function isManagedMarketplace(marketplace, pluginWasInstalled) {
+  if (marketplace?.name !== MARKETPLACE_NAME) return false;
+  if (pluginWasInstalled) return true;
+  const sourceDescription = JSON.stringify(marketplace.marketplaceSource || {}).toLowerCase();
+  if (sourceDescription.includes("maxforai/codex-1m")) return true;
+  if (typeof marketplace.root === "string") {
+    const manifestPath = path4.join(marketplace.root, ".codex-plugin", "plugin.json");
+    try {
+      const manifest = JSON.parse(fs3.readFileSync(manifestPath, "utf8"));
+      return manifest.name === MARKETPLACE_NAME && typeof manifest.repository === "string" && manifest.repository.toLowerCase().includes("maxforai/codex-1m");
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+function resolveBundledMcpServerPath() {
+  return path4.resolve(__dirname, "..", "mcp", "server.cjs");
+}
+function resolvePromptSourceDir() {
+  return path4.resolve(__dirname, "..", "prompts");
+}
+function installManagedPrompts(codexHome = getCodexHome(), sourceDir = resolvePromptSourceDir()) {
+  const destinationDir = path4.join(codexHome, "prompts");
+  fs3.mkdirSync(destinationDir, { recursive: true });
+  const written = [];
+  const preserved = [];
+  for (const fileName of MANAGED_PROMPT_FILES) {
+    const source = path4.join(sourceDir, fileName);
+    const destination = path4.join(destinationDir, fileName);
+    if (fs3.existsSync(destination) && !isCodex1MPrompt(fs3.readFileSync(destination, "utf8"))) {
+      preserved.push(destination);
+      continue;
+    }
+    fs3.copyFileSync(source, destination);
+    written.push(destination);
+  }
+  return { written, preserved };
+}
+function installCodex1M(options = {}) {
+  const runner = options.runner || createCodexRunner();
+  const configManager = options.configManager || new ConfigManager();
+  const codexHome = options.codexHome || getCodexHome();
+  const source = process.env.CODEX_1M_MARKETPLACE_SOURCE || GITHUB_MARKETPLACE;
+  const pluginList = runner.run(["plugin", "list", "--json"]);
+  const installed = isPluginInstalled(pluginList);
+  const marketplaceList = runner.run(["plugin", "marketplace", "list", "--json"]);
+  const namedMarketplace = findMarketplace(marketplaceList);
+  if (namedMarketplace && !isManagedMarketplace(namedMarketplace, installed)) {
+    throw new Error(
+      "A marketplace named codex-1m already exists, but its source is not MaxForAI/codex-1M. Remove or rename it before installing."
+    );
+  }
+  let marketplace = "already configured";
+  if (!namedMarketplace) {
+    runner.run(["plugin", "marketplace", "add", source, "--json"]);
+    marketplace = "added";
+  }
+  let plugin = "already installed";
+  if (!installed) {
+    runner.run(["plugin", "add", PLUGIN_ID, "--json"]);
+    plugin = "installed";
+  }
+  const modifier = new ConfigModifier(configManager);
+  const mcpServer = modifier.registerMCPServer(
+    process.execPath,
+    [options.mcpServerPath || resolveBundledMcpServerPath()]
+  );
+  const prompts = installManagedPrompts(codexHome, options.promptSourceDir);
+  return { marketplace, plugin, mcpServer, prompts };
+}
+function removeCodexPlugin(runner) {
+  let activeRunner;
+  try {
+    activeRunner = runner || createCodexRunner();
+  } catch (error2) {
+    return {
+      plugin: "manual action required",
+      marketplace: "manual action required",
+      detail: error2 instanceof Error ? error2.message : String(error2)
+    };
+  }
+  try {
+    const pluginList = activeRunner.run(["plugin", "list", "--json"]);
+    const installed = isPluginInstalled(pluginList);
+    let plugin = "not installed";
+    if (installed) {
+      activeRunner.run(["plugin", "remove", PLUGIN_ID, "--json"]);
+      plugin = "removed";
+    }
+    const marketplaceList = activeRunner.run(["plugin", "marketplace", "list", "--json"]);
+    const namedMarketplace = findMarketplace(marketplaceList);
+    const configured = isManagedMarketplace(namedMarketplace, installed);
+    let marketplace = "not configured";
+    if (configured) {
+      activeRunner.run(["plugin", "marketplace", "remove", MARKETPLACE_NAME, "--json"]);
+      marketplace = "removed";
+    }
+    if (namedMarketplace && !configured) {
+      return {
+        plugin,
+        marketplace: "manual action required",
+        detail: "A marketplace named codex-1m remains because its source could not be verified as MaxForAI/codex-1M."
+      };
+    }
+    return { plugin, marketplace };
+  } catch (error2) {
+    return {
+      plugin: "manual action required",
+      marketplace: "manual action required",
+      detail: error2 instanceof Error ? error2.message : String(error2)
+    };
+  }
+}
+function uninstallCodex1M(options = {}) {
+  const local = uninstallLocalArtifacts(options.configManager, options.codexHome);
+  const plugin = removeCodexPlugin(options.runner);
+  return { local, plugin };
+}
+function formatInstallResult(result) {
+  return [
+    "1m install complete",
+    "===================",
+    `Marketplace ${MARKETPLACE_NAME}: ${result.marketplace}`,
+    `Plugin ${PLUGIN_ID}: ${result.plugin}`,
+    `MCP server: ${result.mcpServer}`,
+    `Prompts written: ${result.prompts.written.length}`,
+    result.prompts.preserved.length > 0 ? `Prompts preserved because they contain user content: ${result.prompts.preserved.join(", ")}` : "No conflicting prompt files found.",
+    "Start a new Codex conversation, then use 1m on, 1m off, or 1m state."
+  ].join("\n");
+}
+function formatUninstallResult(result) {
+  const { local, plugin } = result;
+  return [
+    "1m uninstall complete",
+    "=====================",
+    `Configuration: ${local.config.changed ? `removed ${local.config.removed.join(", ")}` : "no managed settings found"}`,
+    `Backup: ${local.backupPath || "not needed (config was unchanged)"}`,
+    `Prompts: ${local.removedPrompts.length > 0 ? `removed ${local.removedPrompts.join(", ")}` : "no managed prompt files found"}`,
+    ...local.preservedPrompts.length > 0 ? [`Prompts preserved because their content is not recognized as codex-1m: ${local.preservedPrompts.join(", ")}`] : [],
+    `Plugin ${PLUGIN_ID}: ${plugin.plugin}`,
+    `Marketplace ${MARKETPLACE_NAME}: ${plugin.marketplace}`,
+    ...plugin.detail ? [`Plugin detail: ${plugin.detail}`] : [],
+    "Uninstall removes this MCP server. To reinstall, use a terminal: codex-1m install (or 1m install if the bootstrap command remains on PATH)."
+  ].join("\n");
+}
+
 // src/mcp-server.ts
 var TOOL_DESCRIPTIONS = {
+  install_1m: "Install or repair codex-1M when the user types '1m install'. Registers the MCP server, adds the MaxForAI/codex-1M marketplace, installs the plugin, and writes managed prompts. Matching is case-insensitive.",
+  uninstall_1m: "Fully uninstall codex-1M when the user types '1m uninstall'. Removes managed configuration, prompts, plugin, marketplace, and this MCP registration. Matching is case-insensitive; reinstall afterward requires the terminal bootstrap command.",
   toggle_1m_context: "Toggle Codex 1M-token context. Call with enable=true when the user types '1M on', enable=false when the user types '1M off'. Matching is case-insensitive.",
   context_status: "Report current Codex context configuration. Call when the user types '1M state'. Matching is case-insensitive."
 };
@@ -17699,7 +17960,7 @@ var ADVERTISED_MCP_TOOLS = MCP_TOOLS.map((tool) => ({
 var server = new Server(
   {
     name: "codex-1m",
-    version: "1.4.0"
+    version: "1.5.0"
   },
   {
     capabilities: {
@@ -17718,6 +17979,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const configManager = new ConfigManager();
     const modifier = new ConfigModifier(configManager);
     switch (name) {
+      case "install_1m": {
+        return {
+          content: [{
+            type: "text",
+            text: formatInstallResult(installCodex1M())
+          }]
+        };
+      }
+      case "uninstall_1m": {
+        return {
+          content: [{
+            type: "text",
+            text: formatUninstallResult(uninstallCodex1M())
+          }]
+        };
+      }
       case "toggle_1m_context": {
         const enable = args?.enable || false;
         const global2 = args?.global || false;
