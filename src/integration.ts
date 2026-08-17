@@ -17,15 +17,12 @@ export interface CodexRunner {
 }
 
 export interface InstallResult {
-  marketplace: 'added' | 'already configured';
-  plugin: 'installed' | 'already installed';
-  integration: 'provided by plugin manifest';
-}
-
-export interface UpdateResult {
   marketplace: 'added' | 'upgraded';
   plugin: 'installed' | 'reinstalled';
   installedVersion: string;
+  integration: 'provided by plugin manifest';
+  pristine: 'created' | 'preserved';
+  pristinePath: string;
 }
 
 export interface PluginRemovalResult {
@@ -128,8 +125,11 @@ export function isManagedMarketplace(marketplace: any, pluginWasInstalled: boole
 
 export function installCodex1M(options: {
   runner?: CodexRunner;
+  configManager?: ConfigManager;
 } = {}): InstallResult {
   const runner = options.runner || createCodexRunner();
+  const configManager = options.configManager || new ConfigManager();
+  const pristine = configManager.ensurePristineSnapshot();
   const source = process.env.CODEX_1M_MARKETPLACE_SOURCE || GITHUB_MARKETPLACE;
 
   const pluginList = runner.run(['plugin', 'list', '--json']);
@@ -141,42 +141,7 @@ export function installCodex1M(options: {
       'A marketplace named codex-1m already exists, but its source is not MaxForAI/codex-1M. Remove or rename it before installing.'
     );
   }
-  let marketplace: InstallResult['marketplace'] = 'already configured';
-  if (!namedMarketplace) {
-    runner.run(['plugin', 'marketplace', 'add', source, '--json']);
-    marketplace = 'added';
-  }
-
-  let plugin: InstallResult['plugin'] = 'already installed';
-  if (!installed) {
-    runner.run(['plugin', 'add', PLUGIN_ID, '--json']);
-    plugin = 'installed';
-  }
-
-  return { marketplace, plugin, integration: 'provided by plugin manifest' };
-}
-
-function installedPluginVersion(pluginList: any): string {
-  const plugin = Array.isArray(pluginList?.installed)
-    ? pluginList.installed.find((entry: any) => entry.pluginId === PLUGIN_ID)
-    : undefined;
-  return typeof plugin?.version === 'string' ? plugin.version : 'unknown';
-}
-
-export function updateCodex1M(options: { runner?: CodexRunner } = {}): UpdateResult {
-  const runner = options.runner || createCodexRunner();
-  const source = process.env.CODEX_1M_MARKETPLACE_SOURCE || GITHUB_MARKETPLACE;
-  const pluginList = runner.run(['plugin', 'list', '--json']);
-  const installed = isPluginInstalled(pluginList);
-  const marketplaceList = runner.run(['plugin', 'marketplace', 'list', '--json']);
-  const namedMarketplace = findMarketplace(marketplaceList);
-  if (namedMarketplace && !isManagedMarketplace(namedMarketplace, installed)) {
-    throw new Error(
-      'A marketplace named codex-1m already exists, but its source is not MaxForAI/codex-1M. Remove or rename it before updating.'
-    );
-  }
-
-  let marketplace: UpdateResult['marketplace'];
+  let marketplace: InstallResult['marketplace'];
   if (!namedMarketplace) {
     runner.run(['plugin', 'marketplace', 'add', source, '--json']);
     marketplace = 'added';
@@ -188,11 +153,22 @@ export function updateCodex1M(options: { runner?: CodexRunner } = {}): UpdateRes
   if (installed) runner.run(['plugin', 'remove', PLUGIN_ID, '--json']);
   runner.run(['plugin', 'add', PLUGIN_ID, '--json']);
   const refreshed = runner.run(['plugin', 'list', '--json']);
+
   return {
     marketplace,
     plugin: installed ? 'reinstalled' : 'installed',
     installedVersion: installedPluginVersion(refreshed),
+    integration: 'provided by plugin manifest',
+    pristine: pristine.created ? 'created' : 'preserved',
+    pristinePath: pristine.path,
   };
+}
+
+function installedPluginVersion(pluginList: any): string {
+  const plugin = Array.isArray(pluginList?.installed)
+    ? pluginList.installed.find((entry: any) => entry.pluginId === PLUGIN_ID)
+    : undefined;
+  return typeof plugin?.version === 'string' ? plugin.version : 'unknown';
 }
 
 export function removeCodexPlugin(runner?: CodexRunner): PluginRemovalResult {
@@ -258,19 +234,12 @@ export function formatInstallResult(result: InstallResult): string {
     '===================',
     `Marketplace ${MARKETPLACE_NAME}: ${result.marketplace}`,
     `Plugin ${PLUGIN_ID}: ${result.plugin}`,
-    'MCP server and command routing Skill: provided by the installed plugin manifest',
-    'Start a new Codex conversation, then use 1m on, 1m off, 1m state, 1m update, or 1m doctor.',
-  ].join('\n');
-}
-
-export function formatUpdateResult(result: UpdateResult): string {
-  return [
-    '1m update complete',
-    '==================',
-    `Marketplace ${MARKETPLACE_NAME}: ${result.marketplace}`,
-    `Plugin ${PLUGIN_ID}: ${result.plugin}`,
     `Installed plugin version: ${result.installedVersion}`,
-    'Start a new Codex conversation to load the updated plugin.',
+    `Pristine config: ${result.pristine} at ${result.pristinePath}`,
+    'The pristine file is never overwritten and is only a manual escape hatch.',
+    'MCP server and command routing Skill: provided by the installed plugin manifest',
+    'Repeat 1m install whenever you want to refresh the marketplace and upgrade to the latest plugin.',
+    'Start a new Codex conversation, then use 1m install, 1m uninstall, 1m on, 1m off, or 1m state.',
   ].join('\n');
 }
 
@@ -288,6 +257,9 @@ export function formatUninstallResult(result: UninstallResult): string {
     `Plugin ${PLUGIN_ID}: ${plugin.plugin}`,
     `Marketplace ${MARKETPLACE_NAME}: ${plugin.marketplace}`,
     ...(plugin.detail ? [`Plugin detail: ${plugin.detail}`] : []),
+    `Pristine config: ${local.pristineExists ? `preserved at ${local.pristinePath}` : `not found at ${local.pristinePath}`}.`,
+    'It is never automatically deleted or restored. To return to the complete pre-install configuration, review and copy that file manually.',
+    'Automatic uninstall intentionally restores only codex-1M managed keys so later unrelated user settings are not rolled back.',
     'Uninstall removes this MCP server. To reinstall, use a terminal: codex-1m install (or 1m install if the bootstrap command remains on PATH).',
   ].join('\n');
 }

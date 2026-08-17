@@ -8,14 +8,11 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { ConfigManager } from './config-manager';
 import { ConfigModifier, formatConfigStatus } from './config-modifier';
-import { doctorCodex1M, formatDoctorResult } from './doctor';
 import { MCP_TOOLS } from './mcp-tools';
 import {
   formatInstallResult,
-  formatUpdateResult,
   formatUninstallResult,
   installCodex1M,
-  updateCodex1M,
   uninstallCodex1M,
 } from './integration';
 import { PACKAGE_VERSION } from './version';
@@ -58,24 +55,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case 'update_1m': {
-        return {
-          content: [{
-            type: 'text',
-            text: formatUpdateResult(updateCodex1M())
-          }]
-        };
-      }
-
-      case 'doctor_1m': {
-        return {
-          content: [{
-            type: 'text',
-            text: formatDoctorResult(doctorCodex1M())
-          }]
-        };
-      }
-
       case 'uninstall_1m': {
         return {
           content: [{
@@ -87,10 +66,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'toggle_1m_context': {
         const enable = (args?.enable as boolean) || false;
-        const global = (args?.global as boolean) || false;
+        const profile = (args?.profile as boolean) || false;
 
         if (enable) {
-          const result = modifier.enable1MContext(global);
+          const result = modifier.enable1MContext(!profile);
           return {
             content: [{
               type: 'text',
@@ -98,7 +77,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }]
           };
         } else {
-          const result = modifier.disable1MContext(global);
+          const result = modifier.disable1MContext(!profile);
           return {
             content: [{
               type: 'text',

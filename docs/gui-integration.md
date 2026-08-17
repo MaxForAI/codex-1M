@@ -67,8 +67,8 @@ Files: `skills/codex-1m/SKILL.md`, `.mcp.json`, and `src/mcp-server.ts`, all
 loaded through `.codex-plugin/plugin.json` after `1m install`.
 
 After the terminal bootstrap, restart the desktop app, then type `1m install`,
-`1m update`, `1m doctor`, `1m uninstall`, `1m state`, `1m on`, or `1m off` in
-the conversation. Matching is case-insensitive. The Skill routes these commands
+`1m uninstall`, `1m state`, `1m on`, or `1m off` in the conversation. Matching
+is case-insensitive. The Skill routes these commands
 to the MCP tools, whose descriptions are maintained once in `src/mcp-tools.ts`.
 The installer no longer copies custom prompt files or writes a duplicate global
 MCP registration. First install still requires a terminal because the plugin's
@@ -77,8 +77,9 @@ afterward with `codex-1m install` in a terminal.
 
 User experience: visible/searchable in the composer slash list, but not always
 on screen. The tool result appears in chat. Changing the file does not resize
-the already-created session; start a new local chat/session. A profile-only
-configuration also requires launching a client/session that selects profile `1m`.
+the already-created session; start a new local chat/session. Global configuration
+is the default because Desktop does not select a CLI profile. Explicit profile
+mode requires `1m on --profile` and a client launched with `--profile 1m`.
 
 ### 2. Native macOS menu bar app — closest real button
 

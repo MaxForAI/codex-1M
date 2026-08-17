@@ -26,7 +26,7 @@ let output = { ok: true };
 if (args === 'plugin marketplace list --json') output = { marketplaces: state.marketplace ? [{ name: 'codex-1m', marketplaceSource: { repo: 'MaxForAI/codex-1M' } }] : [] };
 else if (args === 'plugin list --json') output = { installed: state.plugin ? [{ pluginId: 'codex-1m@codex-1m', version: state.version }] : [] };
 else if (args === 'plugin marketplace add MaxForAI/codex-1M --json') state.marketplace = true;
-else if (args === 'plugin marketplace upgrade codex-1m --json') { state.marketplace = true; state.version = '1.8.0'; }
+else if (args === 'plugin marketplace upgrade codex-1m --json') { state.marketplace = true; state.version = '2.0.0'; }
 else if (args === 'plugin add codex-1m@codex-1m --json') state.plugin = true;
 else if (args === 'plugin remove codex-1m@codex-1m --json') state.plugin = false;
 else if (args === 'plugin marketplace remove codex-1m --json') state.marketplace = false;
@@ -42,7 +42,9 @@ process.stdout.write(JSON.stringify(output));
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('lists all tools and executes install, update, doctor, state, and uninstall', async () => {
+  it('lists five command routes and executes install upgrade, global/profile toggles, state, and uninstall', async () => {
+    fs.mkdirSync(codexHome, { recursive: true });
+    fs.writeFileSync(path.join(codexHome, 'config.toml'), '# pristine MCP sentinel\n', 'utf8');
     const env = Object.fromEntries(
       Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined)
     );
@@ -57,43 +59,65 @@ process.stdout.write(JSON.stringify(output));
 
     const listed = await client.listTools();
     const install = listed.tools.find((tool) => tool.name === 'install_1m');
-    const update = listed.tools.find((tool) => tool.name === 'update_1m');
-    const doctor = listed.tools.find((tool) => tool.name === 'doctor_1m');
     const uninstall = listed.tools.find((tool) => tool.name === 'uninstall_1m');
+    expect(listed.tools.map((tool) => tool.name).sort()).toEqual([
+      'context_status',
+      'install_1m',
+      'toggle_1m_context',
+      'uninstall_1m',
+    ]);
     expect(install?.description).toContain('1m install');
-    expect(update?.description).toContain('1m update');
-    expect(doctor?.description).toContain('1m doctor');
     expect(uninstall?.description).toContain('1m uninstall');
 
     const installed = await client.callTool({ name: 'install_1m', arguments: {} });
     expect(installed.isError).not.toBe(true);
     expect(JSON.stringify(installed.content)).toContain('1m install complete');
+    expect(JSON.stringify(installed.content)).toContain('Pristine config: created');
     const configAfterInstall = fs.readFileSync(path.join(codexHome, 'config.toml'), 'utf8');
     expect(configAfterInstall).not.toContain('[mcp_servers.codex-1m]');
     expect(fs.existsSync(path.join(codexHome, 'prompts'))).toBe(false);
 
-    const updated = await client.callTool({ name: 'update_1m', arguments: {} });
-    expect(updated.isError).not.toBe(true);
-    expect(JSON.stringify(updated.content)).toContain('Installed plugin version: 1.8.0');
+    const upgraded = await client.callTool({ name: 'install_1m', arguments: {} });
+    expect(upgraded.isError).not.toBe(true);
+    expect(JSON.stringify(upgraded.content)).toContain('Marketplace codex-1m: upgraded');
+    expect(JSON.stringify(upgraded.content)).toContain('Plugin codex-1m@codex-1m: reinstalled');
+    expect(JSON.stringify(upgraded.content)).toContain('Pristine config: preserved');
+    expect(fs.readFileSync(path.join(codexHome, 'codex-1m-pristine.toml'), 'utf8'))
+      .toBe('# pristine MCP sentinel\n');
 
-    const diagnosed = await client.callTool({ name: 'doctor_1m', arguments: {} });
-    const doctorText = JSON.stringify(diagnosed.content);
-    expect(doctorText).toContain('Codex CLI version: codex-cli 0.test');
-    expect(doctorText).toContain('Configuration mode: not configured');
-    expect(doctorText).toContain('1m.config.toml: missing');
-    expect(doctorText).toContain('codex-1m-state.json: missing');
+    const globalOn = await client.callTool({
+      name: 'toggle_1m_context', arguments: { enable: true },
+    });
+    expect(JSON.stringify(globalOn.content)).toContain('Global Codex configuration modified');
+    expect(fs.existsSync(path.join(codexHome, 'codex-1m-state.json'))).toBe(true);
 
     const status = await client.callTool({ name: 'context_status', arguments: {} });
     const statusText = JSON.stringify(status.content);
-    expect(statusText).toContain('1M Configured: No');
-    expect(statusText).toContain('Global configuration: disabled');
+    expect(statusText).toContain('1M Configured: Yes');
+    expect(statusText).toContain('Global configuration: enabled');
     expect(statusText).toContain('1M profile file: missing');
+    expect(statusText).toContain('Requested context window: 1,000,000');
+    expect(statusText).toContain('Expected usable window: ~828,400');
+    expect(statusText).toContain('Auto-compact: configured 900,000 → expected effective ~784,800');
     expect(statusText).toContain('Current conversation: unknown');
     expect(statusText).not.toContain('1M Enabled');
+
+    await client.callTool({ name: 'toggle_1m_context', arguments: { enable: false } });
+    const profileOn = await client.callTool({
+      name: 'toggle_1m_context', arguments: { enable: true, profile: true },
+    });
+    expect(JSON.stringify(profileOn.content)).toContain('1M profile created');
+    expect(fs.existsSync(path.join(codexHome, '1m.config.toml'))).toBe(true);
+    expect(fs.existsSync(path.join(codexHome, 'codex-1m-state.json'))).toBe(false);
+    await client.callTool({
+      name: 'toggle_1m_context', arguments: { enable: false, profile: true },
+    });
 
     const removed = await client.callTool({ name: 'uninstall_1m', arguments: {} });
     expect(removed.isError).not.toBe(true);
     expect(JSON.stringify(removed.content)).toContain('codex-1m install');
+    expect(JSON.stringify(removed.content)).toContain('Pristine config: preserved at');
+    expect(fs.existsSync(path.join(codexHome, 'codex-1m-pristine.toml'))).toBe(true);
     expect(fs.readFileSync(path.join(codexHome, 'config.toml'), 'utf8'))
       .not.toContain('[mcp_servers.codex-1m]');
     expect(fs.existsSync(path.join(codexHome, 'prompts', '1m.md'))).toBe(false);

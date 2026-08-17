@@ -1,7 +1,7 @@
 {
   "name": "codex-1m",
   "interface": {
-    "displayName": "Codex 1M — install/update/doctor/uninstall/on/off/state"
+    "displayName": "Codex 1M — install/uninstall/on/off/state"
   },
   "plugins": [
     {

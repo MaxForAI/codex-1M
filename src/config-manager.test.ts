@@ -46,6 +46,23 @@ describe('Codex configuration safety', () => {
     );
   });
 
+  it('defaults on and off to global snapshot-protected configuration', () => {
+    fs.writeFileSync(configPath, 'model = "gpt-original"\napproval_policy = "never"\n', 'utf8');
+
+    const enabled = modifier.enable1MContext();
+    expect(enabled).toContain('Global Codex configuration modified');
+    expect(enabled).toContain(manager.getBackupPath());
+    expect(enabled).toContain(manager.getStatePath());
+    expect(manager.readConfig()).toMatchObject({
+      model: 'gpt-5.6-sol',
+      model_context_window: 1000000,
+      model_auto_compact_token_limit: 900000,
+    });
+
+    modifier.disable1MContext();
+    expect(manager.readConfig()).toEqual({ model: 'gpt-original', approval_policy: 'never' });
+  });
+
   it('respects CODEX_HOME for the V2 profile path', () => {
     const previous = process.env.CODEX_HOME;
     const codexHome = path.join(tempDir, 'custom-home');
@@ -98,6 +115,9 @@ describe('Codex configuration safety', () => {
       '1M Configured: Yes',
       'Global configuration: disabled',
       '1M profile file: available',
+      'Requested context window: 1,000,000 tokens (configured request)',
+      'Expected usable window: ~828,400 tokens (server limit 872,000 × 95%)',
+      'Auto-compact: configured 900,000 → expected effective ~784,800 tokens',
       'Current conversation: unknown (start a new conversation and use /status to verify)',
     ].join('\n'));
 
@@ -155,13 +175,13 @@ describe('Codex configuration safety', () => {
   });
 
   it('stops global off on a user edit and leaves config/state untouched', () => {
-    modifier.enable1MContext(true);
+    modifier.enable1MContext();
     manager.patchConfig([{ type: 'set', key: 'model', value: 'gpt-user-after-enable' }]);
     const before = fs.readFileSync(configPath, 'utf8');
     const stateBefore = fs.readFileSync(manager.getStatePath(), 'utf8');
 
-    expect(() => modifier.disable1MContext(true)).toThrow(ConfigConflictError);
-    expect(() => modifier.disable1MContext(true)).toThrow(/user-modified global setting.*model/i);
+    expect(() => modifier.disable1MContext()).toThrow(ConfigConflictError);
+    expect(() => modifier.disable1MContext()).toThrow(/user-modified global setting.*model/i);
     expect(fs.readFileSync(configPath, 'utf8')).toBe(before);
     expect(fs.readFileSync(manager.getStatePath(), 'utf8')).toBe(stateBefore);
   });

@@ -4,6 +4,36 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-08-17
+
+### Breaking changes
+
+- `1m on` and `1m off` now operate on global Codex configuration by default so
+  new Codex Desktop tasks receive the setting. Profile mode is now explicit via
+  `--profile`; `--global` remains a compatibility alias for the default.
+- Removed the `1m update` and `1m doctor` terminal commands and their
+  `update_1m` and `doctor_1m` MCP tools. The supported command set is now
+  install, uninstall, on, off, and state.
+
+### Added
+
+- Repeated `1m install` now refreshes the marketplace and reinstalls the latest
+  plugin, absorbing the previous upgrade path.
+- First install creates the owner-read-only
+  `$CODEX_HOME/codex-1m-pristine.toml` escape hatch and never overwrites it.
+  Uninstall preserves and reports this file instead of using it for automatic
+  full-config restoration.
+- State output distinguishes the 1,000,000-token configured request from the
+  verified ~828,400 usable window and ~784,800 effective compaction threshold.
+
+### Changed
+
+- README and plugin metadata now lead with ~828K usable input and document the
+  verified 872,000 × 95% limit chain separately from the inference that 128K is
+  reserved for maximum output.
+- Global rollback continues to use the key-level state snapshot and refuses to
+  restore when a managed value was changed by the user.
+
 ## [1.8.0] - 2026-08-17
 
 ### Added
@@ -11,7 +41,7 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - GitHub Actions CI across Node.js 18, 20, and 22 on Linux and macOS, including
   install, build, test, production dependency audit, and package verification.
 - Optional real-Codex E2E coverage using an isolated `CODEX_HOME` for the full
-  install, update, doctor, on, off, state, and uninstall lifecycle, plus format,
+  plugin and configuration lifecycle, plus format,
   permission, and concurrent-write assertions.
 - Security policy, release history, repository badges, and demo GIF guidance.
 
@@ -22,7 +52,7 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## 1.7.0 - 2026-08-17
 
-- Added transactional lifecycle handling, `1m update`, and `1m doctor`.
+- Added transactional plugin lifecycle handling and read-only diagnostics.
 - Moved MCP and command routing into the plugin manifest and formal Skill.
 - Synchronized CLI, MCP, and plugin versions from `package.json` at build time.
 
@@ -57,3 +87,4 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Initial CLI for configuring a 1M-token Codex profile or global settings.
 
 [1.8.0]: https://github.com/MaxForAI/codex-1M/releases/tag/v1.8.0
+[2.0.0]: https://github.com/MaxForAI/codex-1M/releases/tag/v2.0.0

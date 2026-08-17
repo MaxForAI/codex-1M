@@ -1,25 +1,7 @@
 export const MCP_TOOLS = [
   {
     name: 'install_1m',
-    description: "Install or repair codex-1M when the user types '1m install'. Adds the MaxForAI/codex-1M marketplace and installs the plugin, whose manifest provides the MCP server and command Skill. Matching is case-insensitive.",
-    inputSchema: {
-      type: 'object',
-      properties: {},
-      required: []
-    }
-  },
-  {
-    name: 'update_1m',
-    description: "Update codex-1M when the user types '1m update'. Refreshes the codex-1m marketplace with 'codex plugin marketplace upgrade codex-1m --json', then removes and re-adds the plugin at the refreshed version. Matching is case-insensitive.",
-    inputSchema: {
-      type: 'object',
-      properties: {},
-      required: []
-    }
-  },
-  {
-    name: 'doctor_1m',
-    description: "Diagnose codex-1M when the user types '1m doctor'. Reports Codex CLI, marketplace repository, installed plugin, configuration mode, MCP server, profile file, and state file status. Matching is case-insensitive.",
+    description: "Install, repair, or upgrade codex-1M when the user types '1m install'. Saves the first pristine config, refreshes the marketplace, and installs the latest plugin. Repeating install performs an upgrade. Matching is case-insensitive.",
     inputSchema: {
       type: 'object',
       properties: {},
@@ -47,7 +29,11 @@ export const MCP_TOOLS = [
         },
         global: {
           type: 'boolean',
-          description: 'True to modify top-level config; false to use the 1m profile (default: false)'
+          description: 'Deprecated compatibility input. Global mode is now the default.'
+        },
+        profile: {
+          type: 'boolean',
+          description: 'True to operate only on 1m.config.toml; false or omitted uses global config'
         }
       },
       required: ['enable']
@@ -55,7 +41,7 @@ export const MCP_TOOLS = [
   },
   {
     name: 'context_status',
-    description: "Report current Codex context configuration. Call when the user types '1M state'. Matching is case-insensitive.",
+    description: "Report requested and expected usable Codex context configuration. Call when the user types '1M state'. Matching is case-insensitive.",
     inputSchema: {
       type: 'object',
       properties: {},

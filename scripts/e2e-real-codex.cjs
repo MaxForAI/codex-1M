@@ -105,6 +105,7 @@ async function main() {
   const configPath = path.join(codexHome, 'config.toml');
   const profilePath = path.join(codexHome, '1m.config.toml');
   const statePath = path.join(codexHome, 'codex-1m-state.json');
+  const pristinePath = path.join(codexHome, 'codex-1m-pristine.toml');
   const originalConfig = [
     '# real E2E sentinel: preserve this comment',
     'model   =   "gpt-user" # preserve this inline comment',
@@ -132,15 +133,17 @@ async function main() {
   try {
     const installOutput = runCli(['install'], env);
     assert.match(installOutput, /Plugin codex-1m@codex-1m: installed/);
+    assert.match(installOutput, /Pristine config: created/);
+    assert.equal(fs.readFileSync(pristinePath, 'utf8'), originalConfig);
+    assert.equal(mode(pristinePath), 0o400, 'pristine config must be read-only');
 
-    const updateOutput = runCli(['update'], env);
-    assert.match(updateOutput, /Marketplace codex-1m: upgraded/);
-    assert.match(updateOutput, /Plugin codex-1m@codex-1m: reinstalled/);
-
-    const doctorOutput = runCli(['doctor'], env);
-    assert.match(doctorOutput, new RegExp(`Codex CLI version: ${codexVersionOutput.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
-    assert.match(doctorOutput, /Installed plugin version: \d+\.\d+\.\d+/);
-    assert.match(doctorOutput, /MCP server exists: yes/);
+    const postInstallConfig = `${originalConfig}\n[mcp_servers.user-added-later]\ncommand = "keep-me"\n`;
+    fs.appendFileSync(configPath, '\n[mcp_servers.user-added-later]\ncommand = "keep-me"\n');
+    const repeatInstallOutput = runCli(['InStAlL'], env);
+    assert.match(repeatInstallOutput, /Marketplace codex-1m: upgraded/);
+    assert.match(repeatInstallOutput, /Plugin codex-1m@codex-1m: reinstalled/);
+    assert.match(repeatInstallOutput, /Pristine config: preserved/);
+    assert.equal(fs.readFileSync(pristinePath, 'utf8'), originalConfig, 'repeat install overwrote pristine config');
 
     const configAfterPluginLifecycle = fs.readFileSync(configPath, 'utf8');
     const configModeAfterPluginLifecycle = mode(configPath);
@@ -148,7 +151,7 @@ async function main() {
     assert.match(configAfterPluginLifecycle, /model   =   "gpt-user" # preserve this inline comment/);
     assert.equal(configModeAfterPluginLifecycle & 0o077, 0, 'Codex config must not be group/world accessible');
 
-    runCli(['on'], env);
+    runCli(['on', '--profile'], env);
     assert.equal(
       fs.readFileSync(configPath, 'utf8'),
       configAfterPluginLifecycle,
@@ -163,7 +166,7 @@ async function main() {
     assert.match(profileState, /1M Configured: Yes/);
     assert.match(profileState, /Current conversation: unknown/);
 
-    runCli(['off'], env);
+    runCli(['off', '--profile'], env);
     assert.equal(fs.existsSync(profilePath), false, 'profile remains after off');
     assert.equal(
       fs.readFileSync(configPath, 'utf8'),
@@ -172,10 +175,10 @@ async function main() {
     );
 
     const concurrent = await Promise.all([
-      runCliConcurrent(['on', '--global'], env),
-      runCliConcurrent(['on', '--global'], env),
+      runCliConcurrent(['on'], env),
+      runCliConcurrent(['on'], env),
     ]);
-    process.stdout.write(`[concurrent on --global]\n${concurrent.join('\n')}\n`);
+    process.stdout.write(`[concurrent on default-global]\n${concurrent.join('\n')}\n`);
     const globalConfig = TOML.parse(fs.readFileSync(configPath, 'utf8'));
     assert.equal(globalConfig.model, 'gpt-5.6-sol');
     assert.equal(globalConfig.model_context_window, 1000000);
@@ -193,7 +196,11 @@ async function main() {
       'atomic temporary file leaked'
     );
 
-    runCli(['off', '--global'], env);
+    const globalState = runCli(['StAtE'], env);
+    assert.match(globalState, /Requested context window: 1,000,000/);
+    assert.match(globalState, /Expected usable window: ~828,400/);
+    assert.match(globalState, /Auto-compact: configured 900,000 → expected effective ~784,800/);
+    runCli(['off'], env);
     assert.equal(
       fs.readFileSync(configPath, 'utf8'),
       configAfterPluginLifecycle,
@@ -201,18 +208,24 @@ async function main() {
     );
     assert.equal(fs.existsSync(statePath), false, 'state remains after global off');
 
+    runCli(['on', '--global'], env);
+    runCli(['off', '--global'], env);
+    assert.equal(fs.readFileSync(configPath, 'utf8'), configAfterPluginLifecycle);
+
     const uninstallOutput = runCli(['uninstall'], env);
     assert.match(uninstallOutput, /Plugin codex-1m@codex-1m: removed/);
     assert.match(uninstallOutput, /Marketplace codex-1m: removed/);
+    assert.match(uninstallOutput, /Pristine config: preserved at/);
 
     const pluginList = JSON.parse(run(codexBinary, ['plugin', 'list', '--json'], env));
     const marketplaceList = JSON.parse(run(codexBinary, ['plugin', 'marketplace', 'list', '--json'], env));
     assert.equal(pluginList.installed.some((entry) => entry.pluginId === 'codex-1m@codex-1m'), false);
     assert.equal(marketplaceList.marketplaces.some((entry) => entry.name === 'codex-1m'), false);
-    assert.equal(fs.readFileSync(configPath, 'utf8'), originalConfig);
+    assert.equal(fs.readFileSync(configPath, 'utf8'), postInstallConfig);
+    assert.equal(fs.readFileSync(pristinePath, 'utf8'), originalConfig);
 
     succeeded = true;
-    process.stdout.write('PASS: real Codex isolated lifecycle, formatting, permissions, and concurrent writes.\n');
+    process.stdout.write('PASS: real Codex isolated install-upgrade, default-global/profile lifecycle, pristine preservation, formatting, permissions, and concurrent writes.\n');
   } finally {
     if (succeeded && process.env.CODEX_1M_E2E_KEEP !== '1') {
       fs.rmSync(sandbox, { recursive: true, force: true });

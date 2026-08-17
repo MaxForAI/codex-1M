@@ -11,6 +11,8 @@ export interface UninstallLocalResult {
   backupPath: string | null;
   removedPrompts: string[];
   preservedPrompts: string[];
+  pristinePath: string;
+  pristineExists: boolean;
 }
 
 export function getCodexHome(): string {
@@ -67,5 +69,7 @@ export function uninstallLocalArtifacts(
     backupPath,
     removedPrompts: prompts.removed,
     preservedPrompts: prompts.preserved,
+    pristinePath: configManager.getPristinePath(),
+    pristineExists: fs.existsSync(configManager.getPristinePath()),
   };
 }

@@ -38,6 +38,15 @@ export interface GlobalConfigState {
 export const MODEL_1M = 'gpt-5.6-sol';
 export const CONTEXT_WINDOW_1M = 1000000;
 export const AUTO_COMPACT_LIMIT = 900000;
+export const SERVER_CONTEXT_LIMIT = 872000;
+export const USABLE_CONTEXT_RATIO = 0.95;
+export const EXPECTED_USABLE_WINDOW = SERVER_CONTEXT_LIMIT * USABLE_CONTEXT_RATIO;
+export const EXPECTED_AUTO_COMPACT_LIMIT =
+  SERVER_CONTEXT_LIMIT * (AUTO_COMPACT_LIMIT / CONTEXT_WINDOW_1M);
+
+function formatTokens(value: number): string {
+  return value.toLocaleString('en-US');
+}
 
 const MANAGED_GLOBAL = {
   model: MODEL_1M,
@@ -75,6 +84,11 @@ export function formatConfigStatus(status: ConfigStatus): string {
     `1M Configured: ${status.configured ? 'Yes' : 'No'}`,
     `Global configuration: ${status.globalConfiguration}`,
     `1M profile file: ${status.profileFile}`,
+    `Requested context window: ${formatTokens(CONTEXT_WINDOW_1M)} tokens (configured request)`,
+    `Expected usable window: ~${formatTokens(EXPECTED_USABLE_WINDOW)} tokens ` +
+      `(server limit ${formatTokens(SERVER_CONTEXT_LIMIT)} × ${USABLE_CONTEXT_RATIO * 100}%)`,
+    `Auto-compact: configured ${formatTokens(AUTO_COMPACT_LIMIT)} → expected effective ` +
+      `~${formatTokens(EXPECTED_AUTO_COMPACT_LIMIT)} tokens`,
     'Current conversation: unknown (start a new conversation and use /status to verify)',
   ].join('\n');
 }
@@ -196,20 +210,27 @@ export class ConfigModifier {
         `${JSON.stringify(state, null, 2)}\n`
       );
       try {
+        this.configManager.createBackup();
         this.configManager.patchConfig([
           { type: 'set', key: 'model', value: MODEL_1M },
           { type: 'set', key: 'model_context_window', value: CONTEXT_WINDOW_1M },
           { type: 'set', key: 'model_auto_compact_token_limit', value: AUTO_COMPACT_LIMIT },
-        ]);
+        ], false);
       } catch (error) {
         this.configManager.removeFile(this.configManager.getStatePath());
         throw error;
       }
-      return `1M settings configured globally. Original values saved to ${this.configManager.getStatePath()}. Start a new Codex conversation and use /status to verify.`;
+      return [
+        `Global Codex configuration modified at ${this.configManager.getConfigPath()}.`,
+        `Backup created at ${this.configManager.getBackupPath()}.`,
+        `Original managed values snapshot saved to ${this.configManager.getStatePath()}.`,
+        'Requested context is 1,000,000 tokens; expected usable input is ~828,400 tokens.',
+        'Start a new Codex conversation and use /status to verify the actual value.',
+      ].join('\n');
     });
   }
 
-  enable1MContext(global: boolean = false): string {
+  enable1MContext(global: boolean = true): string {
     return global ? this.enableGlobal() : this.enableProfile();
   }
 
@@ -248,7 +269,7 @@ export class ConfigModifier {
     return Object.keys(MANAGED_GLOBAL);
   }
 
-  disable1MContext(global: boolean = false): string {
+  disable1MContext(global: boolean = true): string {
     return this.configManager.runExclusive(() => {
       if (global) {
         const restored = this.restoreGlobalIfManaged();

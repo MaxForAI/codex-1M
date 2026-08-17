@@ -4,9 +4,9 @@ import * as path from 'path';
 import { ConfigManager } from './config-manager';
 import {
   CodexRunner,
+  formatUninstallResult,
   installCodex1M,
   PLUGIN_ID,
-  updateCodex1M,
   uninstallCodex1M,
 } from './integration';
 
@@ -55,7 +55,7 @@ class FakeCodexRunner implements CodexRunner {
       return { ok: true };
     }
     if (command === 'plugin marketplace upgrade codex-1m --json') {
-      this.version = '1.8.0';
+      this.version = '2.0.0';
       return { ok: true };
     }
     if (command === 'plugin marketplace remove codex-1m --json') {
@@ -66,7 +66,7 @@ class FakeCodexRunner implements CodexRunner {
   }
 }
 
-describe('conversation install/update/uninstall implementation', () => {
+describe('conversation install/uninstall implementation', () => {
   let tempDir: string;
   let codexHome: string;
   let manager: ConfigManager;
@@ -81,10 +81,16 @@ describe('conversation install/update/uninstall implementation', () => {
 
   it('installs only the marketplace and plugin-provided integration', () => {
     const runner = new FakeCodexRunner();
-    const result = installCodex1M({ runner });
+    fs.writeFileSync(manager.getConfigPath(), '# pristine sentinel\nmodel = "gpt-user"\n', 'utf8');
+    const result = installCodex1M({ runner, configManager: manager });
 
     expect(result.marketplace).toBe('added');
     expect(result.plugin).toBe('installed');
+    expect(result.pristine).toBe('created');
+    expect(fs.readFileSync(manager.getPristinePath(), 'utf8')).toBe(
+      '# pristine sentinel\nmodel = "gpt-user"\n'
+    );
+    expect(fs.statSync(manager.getPristinePath()).mode & 0o777).toBe(0o400);
     expect(result.integration).toBe('provided by plugin manifest');
     expect(manager.readConfig().mcp_servers?.['codex-1m']).toBeUndefined();
     expect(fs.existsSync(path.join(codexHome, 'prompts'))).toBe(false);
@@ -98,10 +104,13 @@ describe('conversation install/update/uninstall implementation', () => {
     fs.mkdirSync(promptDir, { recursive: true });
     fs.writeFileSync(path.join(promptDir, '1m.md'), '# My private prompt', 'utf8');
 
-    const result = installCodex1M({ runner });
+    fs.writeFileSync(manager.getPristinePath(), '# first config forever\n', { mode: 0o400 });
+    const result = installCodex1M({ runner, configManager: manager });
 
-    expect(result.marketplace).toBe('already configured');
-    expect(result.plugin).toBe('already installed');
+    expect(result.marketplace).toBe('upgraded');
+    expect(result.plugin).toBe('reinstalled');
+    expect(result.pristine).toBe('preserved');
+    expect(fs.readFileSync(manager.getPristinePath(), 'utf8')).toBe('# first config forever\n');
     expect(fs.readFileSync(path.join(promptDir, '1m.md'), 'utf8')).toBe('# My private prompt');
   });
 
@@ -110,12 +119,12 @@ describe('conversation install/update/uninstall implementation', () => {
     runner.marketplaceInstalled = true;
     runner.pluginInstalled = true;
 
-    const result = updateCodex1M({ runner });
+    const result = installCodex1M({ runner, configManager: manager });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       marketplace: 'upgraded',
       plugin: 'reinstalled',
-      installedVersion: '1.8.0',
+      installedVersion: '2.0.0',
     });
     expect(runner.calls.map((args) => args.join(' '))).toEqual([
       'plugin list --json',
@@ -129,7 +138,7 @@ describe('conversation install/update/uninstall implementation', () => {
 
   it('fully uninstalls and leaves terminal reinstall as the recovery path', () => {
     const runner = new FakeCodexRunner();
-    installCodex1M({ runner });
+    installCodex1M({ runner, configManager: manager });
 
     const result = uninstallCodex1M({ runner, configManager: manager, codexHome });
 
@@ -139,5 +148,11 @@ describe('conversation install/update/uninstall implementation', () => {
     expect(manager.readConfig().mcp_servers?.['codex-1m']).toBeUndefined();
     expect(runner.pluginInstalled).toBe(false);
     expect(runner.marketplaceInstalled).toBe(false);
+    expect(result.local.pristineExists).toBe(true);
+    expect(fs.existsSync(manager.getPristinePath())).toBe(true);
+    const output = formatUninstallResult(result);
+    expect(output).toContain(`preserved at ${manager.getPristinePath()}`);
+    expect(output).toContain('review and copy that file manually');
+    expect(output).toContain('restores only codex-1M managed keys');
   });
 });
