@@ -8912,8 +8912,8 @@ var require_package = __commonJS({
   "package.json"(exports2, module2) {
     module2.exports = {
       name: "codex-1m",
-      version: "1.7.0",
-      description: "Codex plugin for toggling a 1M-token context window",
+      version: "1.8.0",
+      description: "Configure a 1M-token context window for new Codex conversations",
       main: "dist/index.js",
       bin: {
         "1m": "./dist/cli.js",
@@ -8925,6 +8925,7 @@ var require_package = __commonJS({
         "build:mcp-bundle": "esbuild src/mcp-server.ts --bundle --platform=node --format=cjs --target=node18 --outfile=mcp/server.cjs && node scripts/normalize-bundle.cjs",
         prepare: "npm run build",
         test: "jest",
+        "test:e2e:real": "npm run build && node scripts/e2e-real-codex.cjs",
         prepublishOnly: "npm run build && npm test"
       },
       keywords: [
@@ -8952,6 +8953,8 @@ var require_package = __commonJS({
         "dist",
         "README.md",
         "LICENSE",
+        "CHANGELOG.md",
+        "SECURITY.md",
         "docs",
         "skills",
         "menubar-app",
@@ -17955,7 +17958,7 @@ var ConfigModifier = class {
       const existingState = this.readState();
       if (existingState) {
         if (isManagedSignature(config2)) {
-          return "1M global configuration is already enabled; the original snapshot was preserved.";
+          return "1M settings are already configured globally; the original snapshot was preserved.";
         }
         throw new ConfigConflictError(
           `Conflict: ${this.configManager.getStatePath()} already exists but current global values no longer match codex-1M. Resolve the saved state manually before enabling again.`
@@ -17986,7 +17989,7 @@ var ConfigModifier = class {
         this.configManager.removeFile(this.configManager.getStatePath());
         throw error2;
       }
-      return `1M global configuration enabled. Original values saved to ${this.configManager.getStatePath()}. Restart Codex.`;
+      return `1M settings configured globally. Original values saved to ${this.configManager.getStatePath()}. Start a new Codex conversation and use /status to verify.`;
     });
   }
   enable1MContext(global2 = false) {
@@ -18022,7 +18025,7 @@ var ConfigModifier = class {
     return this.configManager.runExclusive(() => {
       if (global2) {
         const restored = this.restoreGlobalIfManaged();
-        return restored.length > 0 ? "1M global configuration disabled and the pre-enable snapshot was restored. Restart Codex." : "1M global configuration is already disabled.";
+        return restored.length > 0 ? "Managed 1M global settings removed and the pre-configuration snapshot restored. Start a new Codex conversation." : "Managed 1M global settings are already absent.";
       }
       const config2 = this.configManager.readConfig();
       const hasLegacyProfile = Boolean(config2.profiles?.["1m"]);
@@ -18501,7 +18504,7 @@ var MCP_TOOLS = [
   },
   {
     name: "toggle_1m_context",
-    description: "Toggle Codex 1M-token context. Call with enable=true when the user types '1M on', enable=false when the user types '1M off'. Matching is case-insensitive.",
+    description: "Configure or remove Codex 1M settings for new conversations. Call with enable=true when the user types '1M on', enable=false when the user types '1M off'. A successful write does not change the current conversation; matching is case-insensitive.",
     inputSchema: {
       type: "object",
       properties: {

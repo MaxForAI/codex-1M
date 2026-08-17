@@ -173,7 +173,7 @@ export class ConfigModifier {
       const existingState = this.readState();
       if (existingState) {
         if (isManagedSignature(config)) {
-          return '1M global configuration is already enabled; the original snapshot was preserved.';
+          return '1M settings are already configured globally; the original snapshot was preserved.';
         }
         throw new ConfigConflictError(
           `Conflict: ${this.configManager.getStatePath()} already exists but current global values no longer match codex-1M. ` +
@@ -205,7 +205,7 @@ export class ConfigModifier {
         this.configManager.removeFile(this.configManager.getStatePath());
         throw error;
       }
-      return `1M global configuration enabled. Original values saved to ${this.configManager.getStatePath()}. Restart Codex.`;
+      return `1M settings configured globally. Original values saved to ${this.configManager.getStatePath()}. Start a new Codex conversation and use /status to verify.`;
     });
   }
 
@@ -253,8 +253,8 @@ export class ConfigModifier {
       if (global) {
         const restored = this.restoreGlobalIfManaged();
         return restored.length > 0
-          ? '1M global configuration disabled and the pre-enable snapshot was restored. Restart Codex.'
-          : '1M global configuration is already disabled.';
+          ? 'Managed 1M global settings removed and the pre-configuration snapshot restored. Start a new Codex conversation.'
+          : 'Managed 1M global settings are already absent.';
       }
 
       const config = this.configManager.readConfig();

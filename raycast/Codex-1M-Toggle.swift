@@ -7,7 +7,7 @@
 // Optional parameters:
 // @raycast.packageName codex-1m
 // @raycast.icon 🧠
-// @raycast.description Toggle the global Codex 1M context configuration
+// @raycast.description Configure or remove global Codex 1M settings for new conversations
 
 import Foundation
 
@@ -58,7 +58,7 @@ if requestedAction == "toggle" {
         FileHandle.standardError.write(Data("\(status.output)\n".utf8))
         exit(status.status)
     }
-    action = status.output.contains("1M Enabled: Yes") ? "off" : "on"
+    action = status.output.contains("1M Configured: Yes") ? "off" : "on"
 }
 
 let result = runHelper(action)

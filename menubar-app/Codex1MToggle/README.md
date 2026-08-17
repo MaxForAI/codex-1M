@@ -1,6 +1,6 @@
 # Codex 1M macOS menu bar app
 
-This is a native SwiftUI `MenuBarExtra` with explicit Enable, Disable, and
+This is a native SwiftUI `MenuBarExtra` with explicit Configure, Remove, and
 Refresh actions. It delegates configuration changes to
 `scripts/codex-1m-action`, which in turn uses codex-1m's TOML-aware CLI.
 
@@ -31,9 +31,10 @@ app's Resources build phase. Public distribution needs signing and notarization.
 ## Behavior and safety
 
 - Refresh/status is read-only.
-- Enable and Disable change the **global** Codex configuration and create CLI
-  backups.
+- Configure and Remove change the **global** Codex settings and create CLI
+  backups; they do not change the context already attached to a running chat.
 - The app never parses or rewrites TOML itself.
-- Start a new Codex chat/session after toggling.
+- Start a new Codex chat/session after changing the configuration, then use
+  `/status` to verify the context attached to it.
 - The menu's keyboard mnemonics are not system-wide hotkeys. Use Raycast or
   macOS Shortcuts for a global shortcut.

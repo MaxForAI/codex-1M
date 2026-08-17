@@ -37,7 +37,7 @@ export const MCP_TOOLS = [
   },
   {
     name: 'toggle_1m_context',
-    description: "Toggle Codex 1M-token context. Call with enable=true when the user types '1M on', enable=false when the user types '1M off'. Matching is case-insensitive.",
+    description: "Configure or remove Codex 1M settings for new conversations. Call with enable=true when the user types '1M on', enable=false when the user types '1M off'. A successful write does not change the current conversation; matching is case-insensitive.",
     inputSchema: {
       type: 'object',
       properties: {

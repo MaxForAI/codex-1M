@@ -9,9 +9,9 @@ struct Codex1MToggleApp: App {
         MenuBarExtra {
             Text(controller.status.label)
             Divider()
-            Button("Enable globally") { controller.run("on") }
+            Button("Configure globally") { controller.run("on") }
                 .disabled(controller.isRunning)
-            Button("Disable globally") { controller.run("off") }
+            Button("Remove global configuration") { controller.run("off") }
                 .disabled(controller.isRunning)
             Button("Refresh status") { controller.refresh() }
                 .disabled(controller.isRunning)
@@ -47,8 +47,8 @@ final class ToggleController: ObservableObject {
         var label: String {
             switch self {
             case .checking: return "Checking 1M context status…"
-            case .enabled: return "1M context is enabled globally"
-            case .disabled: return "1M context is not enabled globally"
+            case .enabled: return "1M settings are configured globally; verify new conversations with /status"
+            case .disabled: return "1M settings are not configured globally"
             case .failed(let message): return "Status unavailable: \(message)"
             }
         }
@@ -86,7 +86,7 @@ final class ToggleController: ObservableObject {
             }
 
             if action == "status" {
-                status = result.output.contains("1M Enabled: Yes") ? .enabled : .disabled
+                status = result.output.contains("1M Configured: Yes") ? .enabled : .disabled
             } else {
                 status = action == "on" ? .enabled : .disabled
             }

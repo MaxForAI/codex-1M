@@ -1,7 +1,11 @@
 # codex-1M
 
-Install, remove, enable, disable, and inspect Codex's 1M-token context support
-by typing one short command directly in a Codex conversation.
+[![CI](https://github.com/MaxForAI/codex-1M/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MaxForAI/codex-1M/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/github/package-json/v/MaxForAI/codex-1M)](https://github.com/MaxForAI/codex-1M/releases)
+[![License](https://img.shields.io/github/license/MaxForAI/codex-1M)](LICENSE)
+
+Install, update, diagnose, configure, remove, and inspect Codex's 1M-token
+settings by typing one short command directly in a Codex conversation.
 
 ## Install
 
@@ -24,8 +28,8 @@ Codex CLI or GUI conversation. Matching is case-insensitive.
 | `1m update` | `update_1m` | Refresh the marketplace and reinstall the latest plugin version |
 | `1m doctor` | `doctor_1m` | Diagnose CLI, repository, plugin, config, MCP, profile, and state files |
 | `1m uninstall` | `uninstall_1m` | Remove managed config, legacy copies, plugin, and marketplace |
-| `1m on` | `toggle_1m_context(enable=true)` | Enable the existing opt-in `1m` profile behavior |
-| `1m off` | `toggle_1m_context(enable=false)` | Disable the existing opt-in `1m` profile behavior |
+| `1m on` | `toggle_1m_context(enable=true)` | Create or update the opt-in `1m` profile configuration |
+| `1m off` | `toggle_1m_context(enable=false)` | Remove the managed opt-in `1m` profile configuration |
 | `1m state` | `context_status` | Report the current context configuration |
 
 `1M INSTALL`, `1m Doctor`, and other casing variants map to the same tools.
@@ -142,6 +146,17 @@ checks that `1m.config.toml` exists and has all three expected values. Current
 conversation capacity is deliberately `unknown`; start a new conversation and
 use `/status` to verify it.
 
+## Demo GIF (planned)
+
+The README reserves this location for `docs/codex-1m-demo.gif`. The recommended
+recording should start in a disposable Codex conversation, enter `1m on`, show
+the tool reporting **1M Configured**, start a new conversation with
+`codex --profile 1m`, and use `/status` to verify the actual context attached to
+that conversation. It should not display a real home path, account data,
+credentials, or the contents of a user's configuration.
+
+<!-- Replace this comment after recording: ![Configure and verify Codex 1M](docs/codex-1m-demo.gif) -->
+
 ## Update and doctor
 
 `1m update` uses the verified Codex CLI sequence:
@@ -218,6 +233,24 @@ npm install
 npm run build
 npm test
 ```
+
+The regular GitHub Actions matrix does not assume that Codex CLI or a logged-in
+account exists. Real lifecycle coverage is therefore an explicit local test:
+
+```bash
+npm run test:e2e:real
+```
+
+It requires `codex-cli >= 0.134.0`, uses a newly created temporary `CODEX_HOME`,
+and exercises `install`, `update`, `doctor`, `on`, `off`, `state`, and
+`uninstall` against a real Codex plugin implementation. It also verifies TOML
+comment/format preservation, owner-only permissions for managed profile/state
+files, preservation of the existing config mode, and lock behavior under two
+concurrent global writes. The default marketplace source is the GitHub
+repository because Codex does not support `marketplace upgrade` for a local-path
+marketplace. Override it with `CODEX_1M_E2E_SOURCE` only when the alternative is
+a real Git marketplace. Set `CODEX_E2E_REQUIRED=1` to treat a missing Codex CLI
+as a failure, or `CODEX_1M_E2E_KEEP=1` to retain the disposable files for review.
 
 For a real natural-language routing check, use a disposable `CODEX_HOME` with a
 logged-in Codex CLI:

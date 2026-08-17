@@ -23,7 +23,7 @@ program
 
 program
   .command('on')
-  .description('Enable 1M token context window')
+  .description('Configure 1M settings for new Codex conversations')
   .option('--global', 'Modify top-level configuration instead of creating a profile')
   .action(async (options) => {
     try {
@@ -37,14 +37,14 @@ program
         console.log(`\nBackup created at: ${configManager.getBackupPath()}`);
       }
     } catch (error) {
-      console.error('Error enabling 1M context:', error);
+      console.error('Error configuring 1M settings:', error);
       process.exit(1);
     }
   });
 
 program
   .command('off')
-  .description('Disable 1M token context window')
+  .description('Remove managed 1M settings for new Codex conversations')
   .option('--global', 'Remove top-level configuration instead of profile')
   .action(async (options) => {
     try {
@@ -58,7 +58,7 @@ program
         console.log(`\nBackup created at: ${configManager.getBackupPath()}`);
       }
     } catch (error) {
-      console.error('Error disabling 1M context:', error);
+      console.error('Error removing 1M settings:', error);
       process.exit(1);
     }
   });

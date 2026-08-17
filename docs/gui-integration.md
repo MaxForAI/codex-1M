@@ -78,7 +78,7 @@ afterward with `codex-1m install` in a terminal.
 User experience: visible/searchable in the composer slash list, but not always
 on screen. The tool result appears in chat. Changing the file does not resize
 the already-created session; start a new local chat/session. A profile-only
-enable also requires launching a client/session that selects profile `1m`.
+configuration also requires launching a client/session that selects profile `1m`.
 
 ### 2. Native macOS menu bar app — closest real button
 
@@ -86,7 +86,7 @@ Files: `menubar-app/Codex1MToggle/Codex1MToggleApp.swift` and
 `scripts/codex-1m-action`.
 
 The SwiftUI `MenuBarExtra` shows `1M ✓`, `1M –`, or an error state and exposes
-Enable, Disable, and Refresh. It does **not** parse or rewrite TOML itself. It
+Configure, Remove, and Refresh. It does **not** parse or rewrite TOML itself. It
 delegates to the project's tested CLI, which creates backups and uses a TOML
 parser. This avoids the risk of regex changes accidentally touching a profile
 or similarly named key.
