@@ -9,6 +9,7 @@ export const CONTEXT_WINDOW = 1000000;
 export const AUTO_COMPACT_LIMIT = 900000;
 export const PLUGIN_ID = 'codex-1m@codex-1m';
 export const MARKETPLACE_NAME = 'codex-1m';
+export const MANAGED_PROMPT_FILES = ['1m.md', '1m-toggle.md'] as const;
 
 const MANAGED = {
   model: MODEL,
@@ -50,6 +51,7 @@ export interface CleanupStatus {
 export interface UninstallResult {
   backupPath: string | null;
   removed: string[];
+  preservedPrompts: string[];
   plugin: CleanupStatus;
   marketplace: CleanupStatus;
 }
@@ -181,12 +183,44 @@ function runRemoval(runner: CodexCommandRunner | null, args: string[]): CleanupS
   return { status: 'skipped', detail };
 }
 
-function promptFiles(codexHome: string): string[] {
+export function isCodex1MPrompt(content: string): boolean {
+  const hasKnownHeading =
+    content.includes('# Codex 1M Commands') ||
+    content.includes('# 1M Context Toggle');
+  const hasManagedInstructions =
+    content.includes('toggle_1m_context') ||
+    content.includes('install_1m') ||
+    content.includes('MCP tools');
+  return hasKnownHeading && hasManagedInstructions;
+}
+
+function cleanManagedPrompts(codexHome: string): { removed: string[]; preserved: string[] } {
   const promptDirectory = path.join(codexHome, 'prompts');
-  if (!fs.existsSync(promptDirectory)) return [];
-  return fs.readdirSync(promptDirectory)
-    .filter((name) => /^1m.*\.md$/i.test(name))
-    .map((name) => path.join(promptDirectory, name));
+  if (!fs.existsSync(promptDirectory)) return { removed: [], preserved: [] };
+
+  const removed: string[] = [];
+  const preserved: string[] = [];
+  const managedNames = new Set<string>(MANAGED_PROMPT_FILES);
+  for (const entry of fs.readdirSync(promptDirectory, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const normalizedName = entry.name.toLowerCase();
+    if (!normalizedName.startsWith('1m') || !normalizedName.endsWith('.md')) continue;
+
+    const promptPath = path.join(promptDirectory, entry.name);
+    if (!managedNames.has(entry.name)) {
+      preserved.push(promptPath);
+      continue;
+    }
+
+    const content = fs.readFileSync(promptPath, 'utf8');
+    if (isCodex1MPrompt(content)) {
+      fs.unlinkSync(promptPath);
+      removed.push(promptPath);
+    } else {
+      preserved.push(promptPath);
+    }
+  }
+  return { removed, preserved };
 }
 
 export function uninstallCodex1M(options: {
@@ -249,16 +283,17 @@ export function uninstallCodex1M(options: {
     const backupPath = updatedText === originalText ? null : manager.createBackup();
     if (updatedText !== originalText) manager.patchConfig(patches, false);
 
+    const prompts = cleanManagedPrompts(codexHome);
     const legacyFiles = [
       manager.getProfilePath(),
       manager.getPristinePath(),
       manager.getStatePath(),
-      ...promptFiles(codexHome),
     ];
     for (const filePath of legacyFiles) {
       if (manager.removeFile(filePath)) removed.push(path.relative(codexHome, filePath));
     }
-    return { backupPath, removed };
+    removed.push(...prompts.removed.map((filePath) => path.relative(codexHome, filePath)));
+    return { backupPath, removed, preservedPrompts: prompts.preserved };
   });
 
   const runner = options.runner === undefined ? createRunner() : options.runner;
@@ -290,6 +325,8 @@ export function formatUninstallResult(result: UninstallResult): string {
     '✓ Legacy codex-1M files cleaned',
     `Backup: ${result.backupPath || 'not needed'}`,
     `Removed: ${result.removed.length > 0 ? result.removed.join(', ') : 'none'}`,
+    ...result.preservedPrompts.map((filePath) =>
+      `已保留未识别的 prompt 文件：${path.basename(filePath)}`),
     formatCleanup('Plugin', result.plugin),
     formatCleanup('Marketplace', result.marketplace),
     '',

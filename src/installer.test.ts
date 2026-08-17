@@ -6,6 +6,7 @@ import {
   CodexCommandRunner,
   ConfigConflictError,
   formatInstallResult,
+  formatUninstallResult,
   installCodex1M,
   uninstallCodex1M,
 } from './installer';
@@ -123,7 +124,7 @@ describe('single-command installer', () => {
     expect(runner.calls).toHaveLength(0);
   });
 
-  it('cleans every listed 1.x/2.x local remnant and keeps unrelated entries', () => {
+  it('cleans legacy remnants while deleting only recognized allowlisted prompts', () => {
     fs.writeFileSync(configPath, [
       'approval_policy = "never"',
       '',
@@ -145,8 +146,10 @@ describe('single-command installer', () => {
     fs.writeFileSync(manager.getStatePath(), 'legacy invalid state');
     const promptDirectory = path.join(codexHome, 'prompts');
     fs.mkdirSync(promptDirectory);
-    fs.writeFileSync(path.join(promptDirectory, '1m.md'), 'legacy prompt');
-    fs.writeFileSync(path.join(promptDirectory, '1m-extra.md'), 'legacy prompt');
+    fs.writeFileSync(path.join(promptDirectory, '1m.md'), '# 1M Context Toggle\nUse the MCP tools.');
+    fs.writeFileSync(path.join(promptDirectory, '1m-toggle.md'), '# User-edited prompt\nKeep me.');
+    fs.writeFileSync(path.join(promptDirectory, '1m-my-prompt.md'), '# User prompt');
+    fs.writeFileSync(path.join(promptDirectory, '1m-custom.md'), '# 1M Context Toggle\nUse the MCP tools.');
     fs.writeFileSync(path.join(promptDirectory, 'other.md'), 'keep');
 
     const result = uninstallCodex1M({ manager, codexHome, runner: new FakeRunner() });
@@ -158,7 +161,9 @@ describe('single-command installer', () => {
     expect(fs.existsSync(manager.getPristinePath())).toBe(false);
     expect(fs.existsSync(manager.getStatePath())).toBe(false);
     expect(fs.existsSync(path.join(promptDirectory, '1m.md'))).toBe(false);
-    expect(fs.existsSync(path.join(promptDirectory, '1m-extra.md'))).toBe(false);
+    expect(fs.readFileSync(path.join(promptDirectory, '1m-toggle.md'), 'utf8')).toContain('User-edited');
+    expect(fs.existsSync(path.join(promptDirectory, '1m-my-prompt.md'))).toBe(true);
+    expect(fs.existsSync(path.join(promptDirectory, '1m-custom.md'))).toBe(true);
     expect(fs.readFileSync(path.join(promptDirectory, 'other.md'), 'utf8')).toBe('keep');
     expect(result.removed).toEqual(expect.arrayContaining([
       'profiles.1m',
@@ -167,8 +172,15 @@ describe('single-command installer', () => {
       'codex-1m-pristine.toml',
       'codex-1m-state.json',
       path.join('prompts', '1m.md'),
-      path.join('prompts', '1m-extra.md'),
     ]));
+    expect(result.preservedPrompts.map((filePath) => path.basename(filePath))).toEqual([
+      '1m-custom.md',
+      '1m-my-prompt.md',
+      '1m-toggle.md',
+    ]);
+    expect(formatUninstallResult(result)).toContain('已保留未识别的 prompt 文件：1m-toggle.md');
+    expect(formatUninstallResult(result)).toContain('已保留未识别的 prompt 文件：1m-my-prompt.md');
+    expect(formatUninstallResult(result)).toContain('已保留未识别的 prompt 文件：1m-custom.md');
   });
 
   it('reports plugin cleanup as skipped when the Codex CLI is unavailable', () => {

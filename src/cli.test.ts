@@ -43,7 +43,7 @@ describe('CLI surface', () => {
 
   it('publishes one executable that npx can resolve from the package name', () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'));
-    expect(manifest.version).toBe('3.0.0');
+    expect(manifest.version).toBe('3.0.1');
     expect(manifest.bin).toEqual({ 'codex-1m': './dist/cli.js' });
   });
 });

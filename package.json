@@ -1,6 +1,6 @@
 {
   "name": "codex-1m",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Enable long context for Codex with one command",
   "main": "dist/index.js",
   "bin": {
