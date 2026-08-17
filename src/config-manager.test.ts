@@ -1,267 +1,170 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { ConfigManager, CodexConfig } from './config-manager';
-import { ConfigModifier } from './config-modifier';
+import { ConfigManager } from './config-manager';
+import {
+  ConfigConflictError,
+  ConfigModifier,
+  formatConfigStatus,
+} from './config-modifier';
 
-describe('ConfigManager', () => {
-  let tempDir: string;
-  let configPath: string;
-  let manager: ConfigManager;
-
-  beforeEach(() => {
-    // Create temp directory for tests
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-1m-test-'));
-    configPath = path.join(tempDir, 'config.toml');
-    manager = new ConfigManager(configPath);
-  });
-
-  afterEach(() => {
-    // Clean up temp directory
-    if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-  });
-
-  describe('Config file creation', () => {
-    it('should create config directory if it does not exist', () => {
-      expect(fs.existsSync(path.dirname(configPath))).toBe(true);
-      expect(fs.existsSync(configPath)).toBe(true);
-    });
-
-    it('should create empty config if file does not exist', () => {
-      const config = manager.readConfig();
-      expect(config).toEqual({});
-    });
-  });
-
-  describe('Config reading and writing', () => {
-    it('should read and write config correctly', () => {
-      const testConfig: CodexConfig = {
-        model: 'gpt-4',
-        temperature: 0.7,
-        profiles: {
-          small: {
-            model: 'gpt-3.5-turbo',
-            max_tokens: 4096
-          }
-        }
-      };
-
-      manager.writeConfig(testConfig);
-      const readConfig = manager.readConfig();
-
-      expect(readConfig).toEqual(testConfig);
-    });
-
-    it('should preserve existing config when writing', () => {
-      const originalConfig: CodexConfig = {
-        model: 'gpt-4',
-        mcp_servers: {
-          test: {
-            command: 'echo',
-            args: ['test']
-          }
-        }
-      };
-
-      manager.writeConfig(originalConfig);
-
-      const updatedConfig = manager.readConfig();
-      updatedConfig.temperature = 0.8;
-      manager.writeConfig(updatedConfig);
-
-      const finalConfig = manager.readConfig();
-      expect(finalConfig.mcp_servers).toEqual(originalConfig.mcp_servers);
-    });
-  });
-
-  describe('Backup functionality', () => {
-    it('should create backup when writing config', () => {
-      // First write some content
-      const initialConfig: CodexConfig = { model: 'gpt-3.5' };
-      manager.writeConfig(initialConfig);
-
-      // Then write again to trigger backup
-      const testConfig: CodexConfig = { model: 'gpt-4' };
-      manager.writeConfig(testConfig);
-
-      const backupPath = manager.getBackupPath();
-      expect(fs.existsSync(backupPath)).toBe(true);
-
-      const backupContent = fs.readFileSync(backupPath, 'utf-8');
-      expect(backupContent).toContain('model = "gpt-3.5"'); // Should contain previous config
-    });
-
-    it('should create timestamped backups', () => {
-      manager.writeConfig({ model: 'gpt-4' });
-      const firstBackup = manager.getBackupPath();
-
-      // Wait a bit to ensure different timestamp
-      const start = Date.now();
-      while (Date.now() - start < 2) { /* wait */ }
-
-      const manager2 = new ConfigManager(configPath);
-      manager2.writeConfig({ model: 'gpt-3.5' });
-      const secondBackup = manager2.getBackupPath();
-
-      expect(firstBackup).not.toBe(secondBackup);
-    });
-  });
-});
-
-describe('ConfigModifier', () => {
+describe('Codex configuration safety', () => {
   let tempDir: string;
   let configPath: string;
   let manager: ConfigManager;
   let modifier: ConfigModifier;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-1m-modifier-test-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-1m-test-'));
     configPath = path.join(tempDir, 'config.toml');
     manager = new ConfigManager(configPath);
     modifier = new ConfigModifier(manager);
   });
 
   afterEach(() => {
-    if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('creates a V2 profile beside config.toml without writing profiles.1m', () => {
+    fs.writeFileSync(configPath, '# keep me\napproval_policy = "never"\n', 'utf8');
+
+    modifier.enable1MContext(false);
+
+    expect(manager.readConfig().profiles?.['1m']).toBeUndefined();
+    expect(fs.readFileSync(configPath, 'utf8')).toBe(
+      '# keep me\napproval_policy = "never"\n'
+    );
+    expect(manager.readTomlFile(manager.getProfilePath())).toMatchObject({
+      model: 'gpt-5.6-sol',
+      model_context_window: 1000000,
+      model_auto_compact_token_limit: 900000,
+    });
+  });
+
+  it('respects CODEX_HOME for the V2 profile path', () => {
+    const previous = process.env.CODEX_HOME;
+    const codexHome = path.join(tempDir, 'custom-home');
+    process.env.CODEX_HOME = codexHome;
+    try {
+      const defaultManager = new ConfigManager();
+      new ConfigModifier(defaultManager).enable1MContext(false);
+      expect(fs.existsSync(path.join(codexHome, '1m.config.toml'))).toBe(true);
+    } finally {
+      if (previous === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = previous;
     }
   });
 
-  describe('1M Context Profile', () => {
-    it('should create 1M profile correctly', () => {
-      modifier.enable1MContext(false);
+  it('migrates legacy profiles.1m after backing up and preserves comments/other profiles', () => {
+    const legacy = [
+      '# user comment',
+      'approval_policy = "never"',
+      '',
+      '[profiles.1m]',
+      'model = "gpt-5.6-sol"',
+      'model_context_window = 1000000',
+      'model_auto_compact_token_limit = 900000',
+      '',
+      '[profiles.work]',
+      'model = "gpt-5.6-terra"',
+      '',
+    ].join('\n');
+    fs.writeFileSync(configPath, legacy, 'utf8');
 
-      const config = manager.readConfig();
-      expect(config.profiles?.['1m']).toBeDefined();
-      expect(config.profiles?.['1m']).toEqual({
+    const message = modifier.enable1MContext(false);
+
+    expect(message).toContain('Migrated legacy [profiles.1m]');
+    expect(fs.existsSync(manager.getBackupPath())).toBe(true);
+    expect(fs.readFileSync(manager.getBackupPath(), 'utf8')).toBe(legacy);
+    expect(manager.readConfig().profiles).toEqual({ work: { model: 'gpt-5.6-terra' } });
+    expect(fs.readFileSync(configPath, 'utf8')).toContain('# user comment');
+    expect(manager.readTomlFile(manager.getProfilePath()).model_context_window).toBe(1000000);
+  });
+
+  it('removes the V2 profile on off and reports the three independent state fields', () => {
+    modifier.enable1MContext(false);
+    expect(modifier.getStatus()).toEqual({
+      configured: true,
+      globalConfiguration: 'disabled',
+      profileFile: 'available',
+      currentConversation: 'unknown',
+    });
+    expect(formatConfigStatus(modifier.getStatus())).toBe([
+      '1M Configured: Yes',
+      'Global configuration: disabled',
+      '1M profile file: available',
+      'Current conversation: unknown (start a new conversation and use /status to verify)',
+    ].join('\n'));
+
+    modifier.disable1MContext(false);
+    expect(fs.existsSync(manager.getProfilePath())).toBe(false);
+    expect(modifier.getStatus().profileFile).toBe('missing');
+  });
+
+  it('snapshots original global values including missing markers and restores them', () => {
+    fs.writeFileSync(
+      configPath,
+      '# original comment\nmodel = "gpt-user" # retain comment\napproval_policy = "never"\n',
+      'utf8'
+    );
+
+    modifier.enable1MContext(true);
+    const state = JSON.parse(fs.readFileSync(manager.getStatePath(), 'utf8'));
+    expect(state).toMatchObject({
+      version: 1,
+      original: {
+        model: { existed: true, value: 'gpt-user' },
+        model_context_window: { existed: false },
+        model_auto_compact_token_limit: { existed: false },
+      },
+      managed: {
         model: 'gpt-5.6-sol',
         model_context_window: 1000000,
-        model_auto_compact_token_limit: 900000
-      });
+        model_auto_compact_token_limit: 900000,
+      },
     });
+    expect(manager.readConfig().model).toBe('gpt-5.6-sol');
+    expect(fs.readFileSync(configPath, 'utf8')).toContain('# original comment');
 
-    it('should preserve existing configs when creating profile', () => {
-      const existingConfig: CodexConfig = {
-        model: 'gpt-4',
-        profiles: {
-          small: { model: 'gpt-3.5-turbo' }
-        },
-        mcp_servers: {
-          test: { command: 'echo' }
-        }
-      };
-      manager.writeConfig(existingConfig);
-
-      modifier.enable1MContext(false);
-
-      const config = manager.readConfig();
-      expect(config.model).toBe('gpt-4'); // Should not change
-      expect(config.profiles?.['small']).toBeDefined(); // Should preserve existing profile
-      expect(config.mcp_servers?.['test']).toBeDefined(); // Should preserve MCP servers
-      expect(config.profiles?.['1m']).toBeDefined(); // Should add 1M profile
-    });
-
-    it('should be idempotent - running twice should not duplicate', () => {
-      modifier.enable1MContext(false);
-      const firstConfig = manager.readConfig();
-
-      modifier.enable1MContext(false);
-      const secondConfig = manager.readConfig();
-
-      expect(firstConfig).toEqual(secondConfig);
-    });
-
-    it('should remove 1M profile correctly', () => {
-      modifier.enable1MContext(false);
-      expect(manager.readConfig().profiles?.['1m']).toBeDefined();
-
-      modifier.disable1MContext(false);
-      expect(manager.readConfig().profiles?.['1m']).toBeUndefined();
-    });
+    modifier.disable1MContext(true);
+    expect(manager.readConfig()).toEqual({ model: 'gpt-user', approval_policy: 'never' });
+    expect(fs.readFileSync(configPath, 'utf8')).toContain('# retain comment');
+    expect(fs.existsSync(manager.getStatePath())).toBe(false);
   });
 
-  describe('1M Context Global', () => {
-    it('should enable 1M context globally', () => {
-      modifier.enable1MContext(true);
+  it('stops global off on a user edit and leaves config/state untouched', () => {
+    modifier.enable1MContext(true);
+    manager.patchConfig([{ type: 'set', key: 'model', value: 'gpt-user-after-enable' }]);
+    const before = fs.readFileSync(configPath, 'utf8');
+    const stateBefore = fs.readFileSync(manager.getStatePath(), 'utf8');
 
-      const config = manager.readConfig();
-      expect(config.model).toBe('gpt-5.6-sol');
-      expect(config.model_context_window).toBe(1000000);
-      expect(config.model_auto_compact_token_limit).toBe(900000);
-    });
-
-    it('should disable 1M context globally', () => {
-      modifier.enable1MContext(true);
-      expect(manager.readConfig().model).toBe('gpt-5.6-sol');
-
-      modifier.disable1MContext(true);
-      const config = manager.readConfig();
-      expect(config.model).toBeUndefined();
-      expect(config.model_context_window).toBeUndefined();
-      expect(config.model_auto_compact_token_limit).toBeUndefined();
-    });
+    expect(() => modifier.disable1MContext(true)).toThrow(ConfigConflictError);
+    expect(() => modifier.disable1MContext(true)).toThrow(/user-modified global setting.*model/i);
+    expect(fs.readFileSync(configPath, 'utf8')).toBe(before);
+    expect(fs.readFileSync(manager.getStatePath(), 'utf8')).toBe(stateBefore);
   });
 
-  describe('Status Check', () => {
-    it('should report disabled status correctly', () => {
-      const status = modifier.getStatus();
-      expect(status.enabled).toBe(false);
-      expect(status.model).toBe('default');
-    });
+  it('uses surgical patches for managed tables and leaves unrelated formatting intact', () => {
+    const original = [
+      '# top comment',
+      'approval_policy   =   "never" # custom spacing',
+      '',
+      '[mcp_servers.other]',
+      '# nested comment',
+      'command = "other"',
+      '',
+    ].join('\n');
+    fs.writeFileSync(configPath, original, 'utf8');
 
-    it('should report enabled status correctly when globally enabled', () => {
-      modifier.enable1MContext(true);
-      const status = modifier.getStatus();
-      expect(status.enabled).toBe(true);
-      expect(status.model).toBe('gpt-5.6-sol');
-    });
+    modifier.registerMCPServer('/usr/bin/node', ['/plugin/server.cjs']);
+    const updated = fs.readFileSync(configPath, 'utf8');
 
-    it('should report disabled when only profile exists', () => {
-      modifier.enable1MContext(false);
-      const status = modifier.getStatus();
-      expect(status.enabled).toBe(false); // Not globally enabled
-      expect(status.model).toBe('default');
-    });
-  });
-
-  describe('MCP Server Registration', () => {
-    it('should register MCP server correctly', () => {
-      modifier.registerMCPServer();
-
-      const config = manager.readConfig();
-      expect(config.mcp_servers?.['codex-1m']).toBeDefined();
-      expect(config.mcp_servers?.['codex-1m']).toEqual({
-        command: process.execPath,
-        args: [path.join(__dirname, 'mcp-server.js')],
-        description: 'Toggle 1M context window from within Codex'
-      });
-    });
-
-    it('should preserve existing MCP servers', () => {
-      const existingConfig: CodexConfig = {
-        mcp_servers: {
-          existing: { command: 'echo' }
-        }
-      };
-      manager.writeConfig(existingConfig);
-
-      modifier.registerMCPServer();
-
-      const config = manager.readConfig();
-      expect(config.mcp_servers?.['existing']).toBeDefined();
-      expect(config.mcp_servers?.['codex-1m']).toBeDefined();
-    });
-
-    it('should be idempotent', () => {
-      modifier.registerMCPServer();
-      const firstConfig = manager.readConfig();
-
-      modifier.registerMCPServer();
-      const secondConfig = manager.readConfig();
-
-      expect(firstConfig.mcp_servers?.['codex-1m']).toEqual(secondConfig.mcp_servers?.['codex-1m']);
-    });
+    expect(updated).toContain('# top comment');
+    expect(updated).toContain('approval_policy   =   "never" # custom spacing');
+    expect(updated).toContain('# nested comment');
+    expect(manager.readConfig().mcp_servers?.other.command).toBe('other');
+    expect(manager.readConfig().mcp_servers?.['codex-1m'].args).toEqual(['/plugin/server.cjs']);
+    expect(fs.readdirSync(tempDir).some((name) => name.includes('.tmp-'))).toBe(false);
+    expect(fs.existsSync(path.join(tempDir, '.codex-1m.lock'))).toBe(false);
   });
 });

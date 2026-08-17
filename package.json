@@ -1,6 +1,6 @@
 {
   "name": "codex-1m",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Codex plugin for toggling a 1M-token context window",
   "main": "dist/index.js",
   "bin": {

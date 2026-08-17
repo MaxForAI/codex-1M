@@ -3635,7 +3635,7 @@ var require_fast_uri = __commonJS({
         normalizeString(uri, options);
       } else if (typeof uri === "object") {
         uri = /** @type {T} */
-        parse4(serialize(uri, options), options);
+        parse5(serialize(uri, options), options);
       }
       return uri;
     }
@@ -3653,8 +3653,8 @@ var require_fast_uri = __commonJS({
     function resolveComponent(base, relative, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
-        base = parse4(serialize(base, options), options);
-        relative = parse4(serialize(relative, options), options);
+        base = parse5(serialize(base, options), options);
+        relative = parse5(serialize(relative, options), options);
       }
       options = options || {};
       if (!options.tolerant && relative.scheme) {
@@ -3898,7 +3898,7 @@ var require_fast_uri = __commonJS({
       }
       return { parsed, malformedAuthorityOrPort };
     }
-    function parse4(uri, opts) {
+    function parse5(uri, opts) {
       return parseWithStatus(uri, opts).parsed;
     }
     function normalizeString(uri, opts) {
@@ -3927,7 +3927,7 @@ var require_fast_uri = __commonJS({
       resolveComponent,
       equal,
       serialize,
-      parse: parse4
+      parse: parse5
     };
     module2.exports = fastUri;
     module2.exports.default = fastUri;
@@ -6899,12 +6899,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs4, exportName) {
+    function addFormats(ajv, list, fs5, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs4[f]);
+        ajv.addFormat(f, fs5[f]);
     }
     module2.exports = exports2 = formatsPlugin;
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -17484,59 +17484,286 @@ var fs = __toESM(require("fs"));
 var path = __toESM(require("path"));
 var os = __toESM(require("os"));
 var TOML = __toESM(require_toml());
+var LOCK_TIMEOUT_MS = 5e3;
+var STALE_LOCK_MS = 3e4;
+function sleepSync(milliseconds) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+}
+function parseHeaderPath(line) {
+  const match = line.trim().match(/^\[([^\[\]]+)\](?:\s*#.*)?$/);
+  if (!match) return null;
+  const parts = [];
+  let current = "";
+  let quote = "";
+  for (const character of match[1]) {
+    if (quote) {
+      if (character === quote) quote = "";
+      else current += character;
+    } else if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === ".") {
+      parts.push(current.trim());
+      current = "";
+    } else {
+      current += character;
+    }
+  }
+  parts.push(current.trim());
+  return parts;
+}
+function findInlineComment(value) {
+  let quote = "";
+  let escaped = false;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (quote === '"' && character === "\\" && !escaped) {
+      escaped = true;
+      continue;
+    }
+    if (!escaped && (character === '"' || character === "'")) {
+      if (!quote) quote = character;
+      else if (quote === character) quote = "";
+    }
+    if (!quote && character === "#") return index;
+    escaped = false;
+  }
+  return -1;
+}
+function scalarToml(key, value) {
+  const line = TOML.stringify({ [key]: value }).trim();
+  return line.slice(line.indexOf("=") + 1).trim();
+}
+function patchTopLevel(content, key, value) {
+  const newline = content.includes("\r\n") ? "\r\n" : "\n";
+  const hadFinalNewline = content.endsWith("\n");
+  const lines = content.split(/\r?\n/);
+  if (hadFinalNewline) lines.pop();
+  const firstTable = lines.findIndex((line) => parseHeaderPath(line) !== null);
+  const limit = firstTable === -1 ? lines.length : firstTable;
+  const keyPattern = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const matcher = new RegExp(`^(\\s*)${keyPattern}(\\s*=\\s*)(.*)$`);
+  for (let index = 0; index < limit; index += 1) {
+    const match = lines[index].match(matcher);
+    if (!match) continue;
+    if (value === void 0) {
+      lines.splice(index, 1);
+    } else {
+      const commentAt = findInlineComment(match[3]);
+      const comment = commentAt >= 0 ? ` ${match[3].slice(commentAt).trimStart()}` : "";
+      lines[index] = `${match[1]}${key}${match[2]}${scalarToml(key, value)}${comment}`;
+    }
+    return lines.join(newline) + (hadFinalNewline ? newline : "");
+  }
+  if (value !== void 0) lines.splice(limit, 0, `${key} = ${scalarToml(key, value)}`);
+  return lines.join(newline) + (hadFinalNewline || lines.length > 0 ? newline : "");
+}
+function removeTable(content, targetPath) {
+  const newline = content.includes("\r\n") ? "\r\n" : "\n";
+  const hadFinalNewline = content.endsWith("\n");
+  const lines = content.split(/\r?\n/);
+  if (hadFinalNewline) lines.pop();
+  const start = lines.findIndex((line) => {
+    const header = parseHeaderPath(line);
+    return header && header.length === targetPath.length && header.every((part, index) => part === targetPath[index]);
+  });
+  if (start === -1) return content;
+  let end = start + 1;
+  while (end < lines.length && parseHeaderPath(lines[end]) === null) end += 1;
+  let managedEnd = end;
+  while (managedEnd > start + 1 && (lines[managedEnd - 1].trim() === "" || lines[managedEnd - 1].trimStart().startsWith("#"))) {
+    managedEnd -= 1;
+  }
+  lines.splice(start, managedEnd - start);
+  return lines.join(newline) + (hadFinalNewline && lines.length > 0 ? newline : "");
+}
+function applyTomlPatches(content, patches) {
+  let updated = content;
+  for (const patch of patches) {
+    if (patch.type === "set") updated = patchTopLevel(updated, patch.key, patch.value);
+    if (patch.type === "remove") updated = patchTopLevel(updated, patch.key);
+    if (patch.type === "remove-table") updated = removeTable(updated, patch.path);
+    if (patch.type === "set-table") {
+      updated = removeTable(updated, patch.path);
+      const body = TOML.stringify(patch.value).trimEnd();
+      const separator = !updated ? "" : updated.endsWith("\n\n") ? "" : updated.endsWith("\n") ? "\n" : "\n\n";
+      updated = `${updated}${separator}[${patch.path.join(".")}]
+${body}
+`;
+    }
+  }
+  return updated;
+}
 var ConfigManager = class {
   constructor(configPath) {
-    const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
-    this.configPath = configPath || path.join(codexHome, "config.toml");
     this.backupPath = "";
+    this.lockDepth = 0;
+    this.codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
+    this.configPath = configPath || path.join(this.codexHome, "config.toml");
+    if (configPath) this.codexHome = path.dirname(configPath);
     this.ensureConfigExists();
   }
   setBackupPath() {
-    this.backupPath = `${this.configPath}.bak.${Date.now()}`;
+    const basePath = `${this.configPath}.bak.${Date.now()}`;
+    this.backupPath = basePath;
+    let suffix = 1;
+    while (fs.existsSync(this.backupPath)) {
+      this.backupPath = `${basePath}.${suffix}`;
+      suffix += 1;
+    }
+  }
+  fsyncDirectory(directory) {
+    const directoryFd = fs.openSync(directory, "r");
+    try {
+      fs.fsyncSync(directoryFd);
+    } finally {
+      fs.closeSync(directoryFd);
+    }
+  }
+  atomicWriteUnlocked(filePath, content) {
+    const directory = path.dirname(filePath);
+    fs.mkdirSync(directory, { recursive: true });
+    const temporaryPath = path.join(
+      directory,
+      `.${path.basename(filePath)}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`
+    );
+    const mode = fs.existsSync(filePath) ? fs.statSync(filePath).mode & 511 : 384;
+    let fileDescriptor;
+    try {
+      fileDescriptor = fs.openSync(temporaryPath, "wx", mode);
+      fs.fchmodSync(fileDescriptor, mode);
+      fs.writeFileSync(fileDescriptor, content, "utf8");
+      fs.fsyncSync(fileDescriptor);
+      fs.closeSync(fileDescriptor);
+      fileDescriptor = void 0;
+      fs.renameSync(temporaryPath, filePath);
+      this.fsyncDirectory(directory);
+    } finally {
+      if (fileDescriptor !== void 0) fs.closeSync(fileDescriptor);
+      if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath);
+    }
+  }
+  runExclusive(operation) {
+    if (this.lockDepth > 0) return operation();
+    fs.mkdirSync(this.codexHome, { recursive: true });
+    const lockPath = path.join(this.codexHome, ".codex-1m.lock");
+    const deadline = Date.now() + LOCK_TIMEOUT_MS;
+    let lockFd;
+    while (lockFd === void 0) {
+      try {
+        lockFd = fs.openSync(lockPath, "wx", 384);
+        fs.writeFileSync(lockFd, `${process.pid}
+`, "utf8");
+        fs.fsyncSync(lockFd);
+      } catch (error2) {
+        if (error2?.code !== "EEXIST") throw error2;
+        try {
+          if (Date.now() - fs.statSync(lockPath).mtimeMs > STALE_LOCK_MS) {
+            fs.unlinkSync(lockPath);
+            continue;
+          }
+        } catch (statError) {
+          if (statError?.code === "ENOENT") continue;
+          throw statError;
+        }
+        if (Date.now() >= deadline) {
+          throw new Error(`Timed out waiting for Codex configuration lock: ${lockPath}`);
+        }
+        sleepSync(25);
+      }
+    }
+    this.lockDepth += 1;
+    try {
+      return operation();
+    } finally {
+      this.lockDepth -= 1;
+      fs.closeSync(lockFd);
+      try {
+        fs.unlinkSync(lockPath);
+        this.fsyncDirectory(this.codexHome);
+      } catch (error2) {
+        if (error2?.code !== "ENOENT") throw error2;
+      }
+    }
   }
   ensureConfigExists() {
-    const configDir = path.dirname(this.configPath);
-    if (!fs.existsSync(configDir)) {
-      fs.mkdirSync(configDir, { recursive: true });
-    }
-    if (!fs.existsSync(this.configPath)) {
-      fs.writeFileSync(this.configPath, "", "utf-8");
-    }
+    this.runExclusive(() => {
+      if (!fs.existsSync(this.configPath)) this.atomicWriteUnlocked(this.configPath, "");
+    });
   }
   createBackup() {
-    if (fs.existsSync(this.configPath)) {
-      this.setBackupPath();
-      fs.copyFileSync(this.configPath, this.backupPath);
-    }
-    return this.backupPath;
+    return this.runExclusive(() => {
+      if (fs.existsSync(this.configPath)) {
+        this.setBackupPath();
+        fs.copyFileSync(this.configPath, this.backupPath);
+        const backupFd = fs.openSync(this.backupPath, "r");
+        try {
+          fs.fsyncSync(backupFd);
+        } finally {
+          fs.closeSync(backupFd);
+        }
+        this.fsyncDirectory(path.dirname(this.backupPath));
+      }
+      return this.backupPath;
+    });
   }
-  readConfig() {
-    this.ensureConfigExists();
-    const content = fs.readFileSync(this.configPath, "utf-8");
-    if (content.trim() === "") {
-      return {};
-    }
+  readTomlFile(filePath = this.configPath) {
+    if (!fs.existsSync(filePath)) return {};
+    const content = fs.readFileSync(filePath, "utf8");
+    if (content.trim() === "") return {};
     try {
       return TOML.parse(content);
     } catch (error2) {
-      throw new Error(`Failed to parse config file: ${error2}`);
+      throw new Error(`Failed to parse config file ${filePath}: ${error2}`);
     }
+  }
+  readConfig() {
+    return this.readTomlFile(this.configPath);
   }
   writeConfig(config2, createBackup = true) {
-    if (createBackup) {
-      this.createBackup();
-    }
-    const tomlContent = TOML.stringify(config2);
-    fs.writeFileSync(this.configPath, tomlContent, "utf-8");
+    this.runExclusive(() => {
+      if (createBackup) this.createBackup();
+      this.atomicWriteUnlocked(this.configPath, TOML.stringify(config2));
+    });
+  }
+  patchConfig(patches, createBackup = true) {
+    this.runExclusive(() => {
+      const original = fs.readFileSync(this.configPath, "utf8");
+      const updated = applyTomlPatches(original, patches);
+      if (updated === original) return;
+      try {
+        if (updated.trim()) TOML.parse(updated);
+      } catch (error2) {
+        throw new Error(`Refusing to write invalid TOML to ${this.configPath}: ${error2}`);
+      }
+      if (createBackup) this.createBackup();
+      this.atomicWriteUnlocked(this.configPath, updated);
+    });
+  }
+  writeTextFileAtomic(filePath, content) {
+    this.runExclusive(() => this.atomicWriteUnlocked(filePath, content));
+  }
+  removeFile(filePath) {
+    return this.runExclusive(() => {
+      if (!fs.existsSync(filePath)) return false;
+      fs.unlinkSync(filePath);
+      this.fsyncDirectory(path.dirname(filePath));
+      return true;
+    });
   }
   getBackupPath() {
-    if (!this.backupPath) {
-      this.setBackupPath();
-    }
     return this.backupPath;
   }
   getConfigPath() {
     return this.configPath;
+  }
+  getCodexHome() {
+    return this.codexHome;
+  }
+  getProfilePath() {
+    return path.join(this.codexHome, "1m.config.toml");
+  }
+  getStatePath() {
+    return path.join(this.codexHome, "codex-1m-state.json");
   }
   static getFixturesPath() {
     return path.join(__dirname, "..", "fixtures");
@@ -17544,115 +17771,266 @@ var ConfigManager = class {
 };
 
 // src/config-modifier.ts
+var fs2 = __toESM(require("fs"));
 var path2 = __toESM(require("path"));
+var TOML2 = __toESM(require_toml());
 var MODEL_1M = "gpt-5.6-sol";
 var CONTEXT_WINDOW_1M = 1e6;
 var AUTO_COMPACT_LIMIT = 9e5;
+var MANAGED_GLOBAL = {
+  model: MODEL_1M,
+  model_context_window: CONTEXT_WINDOW_1M,
+  model_auto_compact_token_limit: AUTO_COMPACT_LIMIT
+};
+var ConfigConflictError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ConfigConflictError";
+  }
+};
+function isManagedSignature(config2) {
+  return config2.model === MODEL_1M && config2.model_context_window === CONTEXT_WINDOW_1M && config2.model_auto_compact_token_limit === AUTO_COMPACT_LIMIT;
+}
+function hasAnyManagedValue(config2) {
+  return config2.model === MODEL_1M || config2.model_context_window === CONTEXT_WINDOW_1M || config2.model_auto_compact_token_limit === AUTO_COMPACT_LIMIT;
+}
+function snapshotValue(config2, key) {
+  return Object.prototype.hasOwnProperty.call(config2, key) ? { existed: true, value: config2[key] } : { existed: false };
+}
+function formatConfigStatus(status) {
+  return [
+    `1M Configured: ${status.configured ? "Yes" : "No"}`,
+    `Global configuration: ${status.globalConfiguration}`,
+    `1M profile file: ${status.profileFile}`,
+    "Current conversation: unknown (start a new conversation and use /status to verify)"
+  ].join("\n");
+}
 var ConfigModifier = class {
   constructor(configManager) {
     this.configManager = configManager;
   }
-  enable1MContext(global2 = false) {
-    const config2 = this.configManager.readConfig();
-    if (global2) {
-      config2.model = MODEL_1M;
-      config2.model_context_window = CONTEXT_WINDOW_1M;
-      config2.model_auto_compact_token_limit = AUTO_COMPACT_LIMIT;
-    } else {
-      if (!config2.profiles) {
-        config2.profiles = {};
-      }
-      config2.profiles["1m"] = {
-        model: MODEL_1M,
-        model_context_window: CONTEXT_WINDOW_1M,
-        model_auto_compact_token_limit: AUTO_COMPACT_LIMIT
-      };
+  readState() {
+    const statePath = this.configManager.getStatePath();
+    if (!fs2.existsSync(statePath)) return null;
+    let state;
+    try {
+      state = JSON.parse(fs2.readFileSync(statePath, "utf8"));
+    } catch (error2) {
+      throw new ConfigConflictError(
+        `Cannot safely restore global configuration because ${statePath} is invalid: ${error2}`
+      );
     }
-    this.configManager.writeConfig(config2);
-    if (global2) {
-      return `1M context enabled globally. Restart Codex for changes to take effect.`;
-    } else {
-      return `1M profile created. Use 'codex --profile 1m' to start with 1M context.`;
+    if (state.version !== 1 || !state.original || !state.managed) {
+      throw new ConfigConflictError(
+        `Cannot safely restore global configuration because ${statePath} has an unsupported format.`
+      );
+    }
+    return state;
+  }
+  writeProfile() {
+    const profilePath = this.configManager.getProfilePath();
+    const original = fs2.existsSync(profilePath) ? fs2.readFileSync(profilePath, "utf8") : "";
+    if (original.trim()) this.configManager.readTomlFile(profilePath);
+    const updated = applyTomlPatches(original, [
+      { type: "set", key: "model", value: MODEL_1M },
+      { type: "set", key: "model_context_window", value: CONTEXT_WINDOW_1M },
+      { type: "set", key: "model_auto_compact_token_limit", value: AUTO_COMPACT_LIMIT }
+    ]);
+    this.parseTomlText(updated, profilePath);
+    this.configManager.writeTextFileAtomic(profilePath, updated);
+  }
+  removeManagedProfile() {
+    const profilePath = this.configManager.getProfilePath();
+    if (!fs2.existsSync(profilePath)) return false;
+    const profile = this.configManager.readTomlFile(profilePath);
+    if (!isManagedSignature(profile)) {
+      throw new ConfigConflictError(
+        `Conflict: ${profilePath} no longer contains the codex-1M managed values. Refusing to remove a profile the user may have edited.`
+      );
+    }
+    const original = fs2.readFileSync(profilePath, "utf8");
+    const updated = applyTomlPatches(original, [
+      { type: "remove", key: "model" },
+      { type: "remove", key: "model_context_window" },
+      { type: "remove", key: "model_auto_compact_token_limit" }
+    ]);
+    const remaining = updated.trim() ? this.parseTomlText(updated, profilePath) : {};
+    if (Object.keys(remaining).length === 0) this.configManager.removeFile(profilePath);
+    else this.configManager.writeTextFileAtomic(profilePath, updated);
+    return true;
+  }
+  parseTomlText(content, filePath) {
+    try {
+      return TOML2.parse(content);
+    } catch (error2) {
+      throw new Error(`Refusing to write invalid TOML to ${filePath}: ${error2}`);
     }
   }
-  disable1MContext(global2 = false) {
-    const config2 = this.configManager.readConfig();
-    if (global2) {
-      delete config2.model;
-      delete config2.model_context_window;
-      delete config2.model_auto_compact_token_limit;
-    } else {
-      if (config2.profiles && config2.profiles["1m"]) {
-        delete config2.profiles["1m"];
+  enableProfile() {
+    return this.configManager.runExclusive(() => {
+      const config2 = this.configManager.readConfig();
+      const hasLegacyProfile = Boolean(config2.profiles?.["1m"]);
+      if (hasLegacyProfile) this.configManager.createBackup();
+      this.writeProfile();
+      if (hasLegacyProfile) {
+        this.configManager.patchConfig(
+          [{ type: "remove-table", path: ["profiles", "1m"] }],
+          false
+        );
+        if (this.configManager.readConfig().profiles?.["1m"]) {
+          throw new Error(
+            "Legacy profiles.1m uses an unsupported inline TOML shape; the backup and new profile were kept, but config.toml was not changed."
+          );
+        }
       }
+      return hasLegacyProfile ? `Migrated legacy [profiles.1m] to ${this.configManager.getProfilePath()} (backup: ${this.configManager.getBackupPath()}). Use 'codex --profile 1m'.` : `1M profile created at ${this.configManager.getProfilePath()}. Use 'codex --profile 1m'.`;
+    });
+  }
+  enableGlobal() {
+    return this.configManager.runExclusive(() => {
+      const config2 = this.configManager.readConfig();
+      const existingState = this.readState();
+      if (existingState) {
+        if (isManagedSignature(config2)) {
+          return "1M global configuration is already enabled; the original snapshot was preserved.";
+        }
+        throw new ConfigConflictError(
+          `Conflict: ${this.configManager.getStatePath()} already exists but current global values no longer match codex-1M. Resolve the saved state manually before enabling again.`
+        );
+      }
+      const state = {
+        version: 1,
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        original: {
+          model: snapshotValue(config2, "model"),
+          model_context_window: snapshotValue(config2, "model_context_window"),
+          model_auto_compact_token_limit: snapshotValue(config2, "model_auto_compact_token_limit")
+        },
+        managed: { ...MANAGED_GLOBAL }
+      };
+      this.configManager.writeTextFileAtomic(
+        this.configManager.getStatePath(),
+        `${JSON.stringify(state, null, 2)}
+`
+      );
+      try {
+        this.configManager.patchConfig([
+          { type: "set", key: "model", value: MODEL_1M },
+          { type: "set", key: "model_context_window", value: CONTEXT_WINDOW_1M },
+          { type: "set", key: "model_auto_compact_token_limit", value: AUTO_COMPACT_LIMIT }
+        ]);
+      } catch (error2) {
+        this.configManager.removeFile(this.configManager.getStatePath());
+        throw error2;
+      }
+      return `1M global configuration enabled. Original values saved to ${this.configManager.getStatePath()}. Restart Codex.`;
+    });
+  }
+  enable1MContext(global2 = false) {
+    return global2 ? this.enableGlobal() : this.enableProfile();
+  }
+  restoreGlobalIfManaged(createBackup = true) {
+    const config2 = this.configManager.readConfig();
+    const state = this.readState();
+    if (!state) {
+      if (isManagedSignature(config2)) {
+        throw new ConfigConflictError(
+          `Conflict: global codex-1M values are present but ${this.configManager.getStatePath()} is missing. Refusing to delete values without the original snapshot.`
+        );
+      }
+      return [];
     }
-    this.configManager.writeConfig(config2);
-    return `1M context disabled. Restart Codex for changes to take effect.`;
+    const conflicts = Object.entries(MANAGED_GLOBAL).filter(([key, value]) => config2[key] !== value).map(([key]) => key);
+    if (conflicts.length > 0) {
+      throw new ConfigConflictError(
+        `Conflict: user-modified global setting(s): ${conflicts.join(", ")}. No values were restored or deleted; review config.toml and codex-1m-state.json, then decide manually.`
+      );
+    }
+    const patches = [];
+    for (const key of Object.keys(MANAGED_GLOBAL)) {
+      const snapshot = state.original[key];
+      patches.push(snapshot.existed ? { type: "set", key, value: snapshot.value } : { type: "remove", key });
+    }
+    this.configManager.patchConfig(patches, createBackup);
+    this.configManager.removeFile(this.configManager.getStatePath());
+    return Object.keys(MANAGED_GLOBAL);
+  }
+  disable1MContext(global2 = false) {
+    return this.configManager.runExclusive(() => {
+      if (global2) {
+        const restored = this.restoreGlobalIfManaged();
+        return restored.length > 0 ? "1M global configuration disabled and the pre-enable snapshot was restored. Restart Codex." : "1M global configuration is already disabled.";
+      }
+      const config2 = this.configManager.readConfig();
+      const hasLegacyProfile = Boolean(config2.profiles?.["1m"]);
+      const hasProfileFile = fs2.existsSync(this.configManager.getProfilePath());
+      if (hasLegacyProfile) this.configManager.createBackup();
+      if (hasProfileFile) this.removeManagedProfile();
+      if (hasLegacyProfile) {
+        this.configManager.patchConfig(
+          [{ type: "remove-table", path: ["profiles", "1m"] }],
+          false
+        );
+      }
+      return hasLegacyProfile || hasProfileFile ? "1M profile configuration removed. Start a new Codex conversation." : "1M profile configuration is already absent.";
+    });
   }
   getStatus() {
     const config2 = this.configManager.readConfig();
-    const status = {
-      model: config2.model || "default",
-      model_context_window: config2.model_context_window || 0,
-      model_auto_compact_token_limit: config2.model_auto_compact_token_limit || 0,
-      enabled: false
-    };
-    if (config2.model === MODEL_1M && config2.model_context_window === CONTEXT_WINDOW_1M && config2.model_auto_compact_token_limit === AUTO_COMPACT_LIMIT) {
-      status.enabled = true;
+    let profileAvailable = false;
+    try {
+      const profilePath = this.configManager.getProfilePath();
+      profileAvailable = fs2.existsSync(profilePath) && isManagedSignature(this.configManager.readTomlFile(profilePath));
+    } catch {
+      profileAvailable = false;
     }
-    return status;
+    const globalEnabled = isManagedSignature(config2);
+    return {
+      configured: globalEnabled || profileAvailable,
+      globalConfiguration: globalEnabled ? "enabled" : "disabled",
+      profileFile: profileAvailable ? "available" : "missing",
+      currentConversation: "unknown"
+    };
   }
   registerMCPServer(command = process.execPath, args = [path2.join(__dirname, "mcp-server.js")]) {
-    const config2 = this.configManager.readConfig();
-    if (!config2.mcp_servers) {
-      config2.mcp_servers = {};
-    }
-    config2.mcp_servers["codex-1m"] = {
-      command,
-      args,
-      description: "Toggle 1M context window from within Codex"
-    };
-    this.configManager.writeConfig(config2);
+    this.configManager.patchConfig([{
+      type: "set-table",
+      path: ["mcp_servers", "codex-1m"],
+      value: {
+        command,
+        args,
+        description: "Toggle 1M context window from within Codex"
+      }
+    }]);
     return "MCP server registered successfully.";
   }
   hasUninstallArtifacts(config2 = this.configManager.readConfig()) {
-    const hasManagedGlobalConfig = config2.model === MODEL_1M && config2.model_context_window === CONTEXT_WINDOW_1M && config2.model_auto_compact_token_limit === AUTO_COMPACT_LIMIT;
     return Boolean(
-      hasManagedGlobalConfig || config2.profiles?.["1m"] || config2.mcp_servers?.["codex-1m"] || config2.plugins?.["codex-1m@codex-1m"] || config2.marketplaces?.["codex-1m"]
+      hasAnyManagedValue(config2) || config2.profiles?.["1m"] || config2.mcp_servers?.["codex-1m"] || fs2.existsSync(this.configManager.getProfilePath()) || fs2.existsSync(this.configManager.getStatePath()) || config2.plugins?.["codex-1m@codex-1m"] || config2.marketplaces?.["codex-1m"]
     );
   }
   uninstallConfiguration() {
-    const config2 = this.configManager.readConfig();
-    const removed = [];
-    const hasManagedGlobalConfig = config2.model === MODEL_1M && config2.model_context_window === CONTEXT_WINDOW_1M && config2.model_auto_compact_token_limit === AUTO_COMPACT_LIMIT;
-    if (hasManagedGlobalConfig) {
-      delete config2.model;
-      delete config2.model_context_window;
-      delete config2.model_auto_compact_token_limit;
-      removed.push(
-        "model",
-        "model_context_window",
-        "model_auto_compact_token_limit"
-      );
-    }
-    if (config2.profiles?.["1m"]) {
-      delete config2.profiles["1m"];
-      removed.push("profiles.1m");
-      if (Object.keys(config2.profiles).length === 0) {
-        delete config2.profiles;
+    return this.configManager.runExclusive(() => {
+      const removed = [];
+      const restored = this.restoreGlobalIfManaged(false);
+      if (restored.length > 0) removed.push("global 1M values (snapshot restored)");
+      const config2 = this.configManager.readConfig();
+      const patches = [];
+      if (config2.profiles?.["1m"]) {
+        patches.push({ type: "remove-table", path: ["profiles", "1m"] });
+        removed.push("profiles.1m");
       }
-    }
-    if (config2.mcp_servers?.["codex-1m"]) {
-      delete config2.mcp_servers["codex-1m"];
-      removed.push("mcp_servers.codex-1m");
-      if (Object.keys(config2.mcp_servers).length === 0) {
-        delete config2.mcp_servers;
+      if (config2.mcp_servers?.["codex-1m"]) {
+        patches.push({ type: "remove-table", path: ["mcp_servers", "codex-1m"] });
+        removed.push("mcp_servers.codex-1m");
       }
-    }
-    if (removed.length > 0) {
-      this.configManager.writeConfig(config2, false);
-    }
-    return { changed: removed.length > 0, removed };
+      if (patches.length > 0) this.configManager.patchConfig(patches, false);
+      if (fs2.existsSync(this.configManager.getProfilePath())) {
+        this.removeManagedProfile();
+        removed.push("1m.config.toml");
+      }
+      return { changed: removed.length > 0, removed };
+    });
   }
 };
 
@@ -17707,11 +18085,11 @@ var MCP_TOOLS = [
 
 // src/integration.ts
 var import_child_process = require("child_process");
-var fs3 = __toESM(require("fs"));
+var fs4 = __toESM(require("fs"));
 var path4 = __toESM(require("path"));
 
 // src/uninstaller.ts
-var fs2 = __toESM(require("fs"));
+var fs3 = __toESM(require("fs"));
 var os2 = __toESM(require("os"));
 var path3 = __toESM(require("path"));
 var MANAGED_PROMPT_FILES = ["1m.md", "1m-toggle.md"];
@@ -17729,10 +18107,10 @@ function removeManagedPrompts(codexHome = getCodexHome()) {
   const preserved = [];
   for (const fileName of MANAGED_PROMPT_FILES) {
     const promptPath = path3.join(promptDir, fileName);
-    if (!fs2.existsSync(promptPath)) continue;
-    const content = fs2.readFileSync(promptPath, "utf8");
+    if (!fs3.existsSync(promptPath)) continue;
+    const content = fs3.readFileSync(promptPath, "utf8");
     if (isCodex1MPrompt(content)) {
-      fs2.unlinkSync(promptPath);
+      fs3.unlinkSync(promptPath);
       removed.push(promptPath);
     } else {
       preserved.push(promptPath);
@@ -17768,7 +18146,7 @@ function resolveCodexBinary() {
   const fromPath = pathProbe.stdout?.trim().split(/\r?\n/)[0];
   if (pathProbe.status === 0 && fromPath) return fromPath;
   const macAppBinary = "/Applications/ChatGPT.app/Contents/Resources/codex";
-  if (process.platform === "darwin" && fs3.existsSync(macAppBinary)) {
+  if (process.platform === "darwin" && fs4.existsSync(macAppBinary)) {
     return macAppBinary;
   }
   throw new Error(
@@ -17807,7 +18185,7 @@ function isManagedMarketplace(marketplace, pluginWasInstalled) {
   if (typeof marketplace.root === "string") {
     const manifestPath = path4.join(marketplace.root, ".codex-plugin", "plugin.json");
     try {
-      const manifest = JSON.parse(fs3.readFileSync(manifestPath, "utf8"));
+      const manifest = JSON.parse(fs4.readFileSync(manifestPath, "utf8"));
       return manifest.name === MARKETPLACE_NAME && typeof manifest.repository === "string" && manifest.repository.toLowerCase().includes("maxforai/codex-1m");
     } catch {
       return false;
@@ -17823,17 +18201,17 @@ function resolvePromptSourceDir() {
 }
 function installManagedPrompts(codexHome = getCodexHome(), sourceDir = resolvePromptSourceDir()) {
   const destinationDir = path4.join(codexHome, "prompts");
-  fs3.mkdirSync(destinationDir, { recursive: true });
+  fs4.mkdirSync(destinationDir, { recursive: true });
   const written = [];
   const preserved = [];
   for (const fileName of MANAGED_PROMPT_FILES) {
     const source = path4.join(sourceDir, fileName);
     const destination = path4.join(destinationDir, fileName);
-    if (fs3.existsSync(destination) && !isCodex1MPrompt(fs3.readFileSync(destination, "utf8"))) {
+    if (fs4.existsSync(destination) && !isCodex1MPrompt(fs4.readFileSync(destination, "utf8"))) {
       preserved.push(destination);
       continue;
     }
-    fs3.copyFileSync(source, destination);
+    fs4.copyFileSync(source, destination);
     written.push(destination);
   }
   return { written, preserved };
@@ -17960,7 +18338,7 @@ var ADVERTISED_MCP_TOOLS = MCP_TOOLS.map((tool) => ({
 var server = new Server(
   {
     name: "codex-1m",
-    version: "1.5.0"
+    version: "1.6.0"
   },
   {
     capabilities: {
@@ -18026,11 +18404,7 @@ IMPORTANT: Start a new Codex session for changes to take effect.`
           content: [{
             type: "text",
             text: `Current Codex Configuration:
-- Model: ${status.model}
-- Context Window: ${status.model_context_window.toLocaleString()} tokens
-- Auto Compact Limit: ${status.model_auto_compact_token_limit.toLocaleString()} tokens
-- 1M Enabled: ${status.enabled ? "Yes (global)" : "No"}
-${!status.enabled ? "\nNote: 1M context is not currently enabled. Use toggle_1m_context to enable it." : ""}`
+${formatConfigStatus(status)}`
           }]
         };
       }

@@ -39,6 +39,10 @@ describe('short command routing', () => {
     expect(program.commands.map((command) => command.name())).toEqual(
       expect.arrayContaining(['install', 'uninstall', 'on', 'off', 'state'])
     );
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(process.cwd(), '.codex-plugin', 'plugin.json'), 'utf8')
+    );
+    expect(manifest.version).toBe(packageJson.version);
   });
 
   it('documents one bootstrap and the unified command table without legacy npx commands', () => {
@@ -53,6 +57,15 @@ describe('short command routing', () => {
     expect(readme).toContain('| `1m state` | `context_status` |');
     expect(readme).toContain('there is no tool left to\nreceive it');
     expect(readme).not.toMatch(/npx (?:codex-1m|github:MaxForAI\/codex-1M)/);
+    expect(readme).toContain('$CODEX_HOME/1m.config.toml');
+    expect(readme).toContain('codex --profile 1m');
+    expect(readme).toContain('codex-1m-state.json');
+    expect(readme).toContain('$CODEX_HOME/.codex-1m.lock');
+    expect(readme).toContain('Global configuration: disabled');
+    expect(readme).toContain('1M profile file: available');
+    expect(readme).toContain('Current conversation: unknown');
+    expect(readme).toContain('1M Configured: Yes');
+    expect(readme).not.toContain('By default, `1m on` creates the opt-in `[profiles.1m]`');
   });
 
   it('documents all case-insensitive chat mappings in the installed prompt', () => {

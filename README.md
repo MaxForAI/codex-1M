@@ -60,10 +60,13 @@ before the running MCP process exits, but it removes its own future registration
 The command creates `config.toml.bak.<timestamp>` before changing a managed
 configuration, then:
 
-- removes the exact managed top-level `model`, `model_context_window`, and
-  `model_auto_compact_token_limit` triple only when all values match;
-- removes `[profiles.1m]` and `[mcp_servers.codex-1m]` while preserving unrelated
-  TOML settings;
+- restores top-level `model`, `model_context_window`, and
+  `model_auto_compact_token_limit` from `codex-1m-state.json` only while all
+  three current values still match the values written by codex-1M;
+- stops with an explicit conflict, without deleting or restoring anything, if
+  a user changed any managed global value after `1m on --global`;
+- removes `1m.config.toml`, legacy `[profiles.1m]`, and
+  `[mcp_servers.codex-1m]` while preserving unrelated TOML settings;
 - removes only recognized codex-1M prompt files;
 - removes `codex-1m@codex-1m` and its verified `codex-1m` marketplace entry.
 
@@ -82,20 +85,63 @@ cleanup still finishes and the result prints the remaining manual action.
 
 ## What `on` configures
 
-By default, `1m on` creates the opt-in `[profiles.1m]` profile and registers the
-MCP server with an absolute Node/script path that works from terminal and GUI
-processes without relying on npm's PATH lookup:
+By default, `1m on` creates the Codex V2 profile file at
+`$CODEX_HOME/1m.config.toml` (`~/.codex/1m.config.toml` unless `CODEX_HOME` is
+set) and registers the MCP server with an absolute Node/script path that works
+from terminal and GUI processes without relying on npm's PATH lookup:
 
 ```toml
-[profiles.1m]
 model = "gpt-5.6-sol"
 model_context_window = 1000000
 model_auto_compact_token_limit = 900000
 ```
 
+Start Codex with `codex --profile 1m`. The official
+[Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
+documents profile files as `$CODEX_HOME/profile-name.config.toml` selected by
+`--profile profile-name`. If `1m on` finds the obsolete `[profiles.1m]` table,
+it first backs up `config.toml`, creates the V2 file, and then removes only that
+legacy table.
+
 Use `1m on --global` only when a top-level configuration is explicitly desired.
-Every write creates a timestamped backup and uses a TOML parser so unrelated
-configuration, MCP servers, and profiles are preserved.
+Before changing the three top-level values it writes
+`$CODEX_HOME/codex-1m-state.json`. Each original value is represented as
+`{ "existed": true, "value": ... }` or `{ "existed": false }`, and the file
+also records the exact managed values. `1m off --global` and `1m uninstall`
+restore that snapshot only if all current values still match codex-1M. A later
+user edit is a conflict and stops cleanup for manual review.
+
+## State output
+
+`1m state` and the MCP `context_status` tool report configuration, not an
+assumption about the already-running conversation:
+
+```text
+1M Configured: Yes
+Global configuration: disabled
+1M profile file: available
+Current conversation: unknown (start a new conversation and use /status to verify)
+```
+
+`Global configuration` checks the three top-level values. `1M profile file`
+checks that `1m.config.toml` exists and has all three expected values. Current
+conversation capacity is deliberately `unknown`; start a new conversation and
+use `/status` to verify it.
+
+## Safe writes and formatting
+
+All codex-1M writes are serialized by `$CODEX_HOME/.codex-1m.lock`. Data is
+written to a unique temporary file in the same directory, the file is `fsync`'d,
+atomically renamed over the target, and the directory is `fsync`'d. This avoids
+partial files and two codex-1M processes writing at once.
+
+For `config.toml`, codex-1M uses surgical text patches for only its managed
+top-level keys and tables. Unrelated comments, whitespace, ordering, tables, and
+settings are left byte-for-byte intact. A managed key line or managed table may
+be normalized when codex-1M changes it; comments embedded inside a removed
+legacy/managed table cannot always retain their original attachment. Files are
+parsed before and after relevant changes so malformed or unsupported TOML is
+rejected instead of silently restructuring the rest of the configuration.
 
 ## Caveats
 

@@ -1,6 +1,6 @@
 {
   "name": "codex-1m",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Use five 1M conversation commands to install, uninstall, and control a 1,000,000-token Codex context window.",
   "author": {
     "name": "MaxForAI",

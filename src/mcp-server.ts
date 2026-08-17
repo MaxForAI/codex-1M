@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { ConfigManager } from './config-manager';
-import { ConfigModifier } from './config-modifier';
+import { ConfigModifier, formatConfigStatus } from './config-modifier';
 import { MCP_TOOLS } from './mcp-tools';
 import {
   formatInstallResult,
@@ -36,7 +36,7 @@ const ADVERTISED_MCP_TOOLS = MCP_TOOLS.map((tool) => ({
 const server = new Server(
   {
     name: 'codex-1m',
-    version: '1.5.0',
+    version: '1.6.0',
   },
   {
     capabilities: {
@@ -107,12 +107,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return {
           content: [{
             type: 'text',
-            text: `Current Codex Configuration:
-- Model: ${status.model}
-- Context Window: ${status.model_context_window.toLocaleString()} tokens
-- Auto Compact Limit: ${status.model_auto_compact_token_limit.toLocaleString()} tokens
-- 1M Enabled: ${status.enabled ? 'Yes (global)' : 'No'}
-${!status.enabled ? '\nNote: 1M context is not currently enabled. Use toggle_1m_context to enable it.' : ''}`
+            text: `Current Codex Configuration:\n${formatConfigStatus(status)}`
           }]
         };
       }

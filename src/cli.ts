@@ -2,7 +2,7 @@
 
 import { Command } from 'commander';
 import { ConfigManager } from './config-manager';
-import { ConfigModifier } from './config-modifier';
+import { ConfigModifier, formatConfigStatus } from './config-modifier';
 import {
   formatInstallResult,
   formatUninstallResult,
@@ -15,7 +15,7 @@ export const program = new Command();
 program
   .name('1m')
   .description('Install, uninstall, and control Codex 1M support')
-  .version('1.5.0');
+  .version('1.6.0');
 
 program
   .command('on')
@@ -33,7 +33,9 @@ program
       modifier.registerMCPServer();
       console.log('MCP server registered.');
 
-      console.log(`\nBackup created at: ${configManager.getBackupPath()}`);
+      if (configManager.getBackupPath()) {
+        console.log(`\nBackup created at: ${configManager.getBackupPath()}`);
+      }
     } catch (error) {
       console.error('Error enabling 1M context:', error);
       process.exit(1);
@@ -52,7 +54,9 @@ program
       const result = modifier.disable1MContext(options.global);
       console.log(result);
 
-      console.log(`\nBackup created at: ${configManager.getBackupPath()}`);
+      if (configManager.getBackupPath()) {
+        console.log(`\nBackup created at: ${configManager.getBackupPath()}`);
+      }
     } catch (error) {
       console.error('Error disabling 1M context:', error);
       process.exit(1);
@@ -70,16 +74,9 @@ program
 
       const status = modifier.getStatus();
 
-      console.log('Codex 1M Context State:');
+      console.log('Codex 1M Configuration:');
       console.log('=======================');
-      console.log(`Model: ${status.model}`);
-      console.log(`Context Window: ${status.model_context_window.toLocaleString()} tokens`);
-      console.log(`Auto Compact Limit: ${status.model_auto_compact_token_limit.toLocaleString()} tokens`);
-      console.log(`1M Enabled: ${status.enabled ? 'Yes (global)' : 'No'}`);
-
-      if (!status.enabled) {
-        console.log('\nTip: Use "codex --profile 1m" if you created a 1M profile');
-      }
+      console.log(formatConfigStatus(status));
     } catch (error) {
       console.error('Error getting state:', error);
       process.exit(1);

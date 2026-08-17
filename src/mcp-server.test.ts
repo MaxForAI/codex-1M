@@ -66,6 +66,14 @@ process.stdout.write(JSON.stringify(output));
     expect(configAfterInstall).toContain('[mcp_servers.codex-1m]');
     expect(fs.existsSync(path.join(codexHome, 'prompts', '1m.md'))).toBe(true);
 
+    const status = await client.callTool({ name: 'context_status', arguments: {} });
+    const statusText = JSON.stringify(status.content);
+    expect(statusText).toContain('1M Configured: No');
+    expect(statusText).toContain('Global configuration: disabled');
+    expect(statusText).toContain('1M profile file: missing');
+    expect(statusText).toContain('Current conversation: unknown');
+    expect(statusText).not.toContain('1M Enabled');
+
     const removed = await client.callTool({ name: 'uninstall_1m', arguments: {} });
     expect(removed.isError).not.toBe(true);
     expect(JSON.stringify(removed.content)).toContain('codex-1m install');
